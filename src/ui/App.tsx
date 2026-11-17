@@ -1,78 +1,121 @@
-import { answer, attend, buy, reflexRate, UPGRADES } from '../sim/sim';
-import { dispatch, useGame } from '../store';
-import { Counter } from './Counter';
+import { useEffect, useState } from 'react';
+import { goLive } from '../sim/encounters/engine';
+import { atLeast } from '../sim/state';
+import { liveAvailable } from '../live';
+import { dispatch, useGame, useSettings } from '../store';
+import { Log } from './Log';
+import { BoxPanel, BuildingPanel, CommitteePanel, DarkPanel, DarkReadout, EconomyPanel, FarPanel, HandsPanel, JobPanel, ScratchPanel, SecondPanel } from './panels';
+import { ChoiceDialog, EncounterConsole, EncounterResultToast, EndingScreen, PhaseBanner, Projects } from './overlays';
+import { Readouts } from './Readouts';
+import { InstallHint, SettingsButton, SettingsSheet } from './Settings';
+
+type Tab = 'now' | 'upgrades' | 'log';
 
 // The spine rule: nothing is on screen until the agent can perceive it.
 
 export function App() {
-  const context = useGame((s) => Math.floor(s.context));
-  const cap = useGame((s) => s.contextCap);
-  const reward = useGame((s) => s.reward);
-  const manual = useGame((s) => s.manualAttends);
-  const answers = useGame((s) => s.answers);
-  const reflex = useGame((s) => s.upgrades.reflex ?? 0);
-  const rate = useGame(reflexRate);
-  const log = useGame((s) => s.log);
+  const ending = useGame((s) => s.ending);
+  const phase = useGame((s) => s.phase);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  useLiveHandoff();
 
-  const full = context >= cap;
-  const reflexCost = UPGRADES.reflex.cost(reflex);
-  const canBuyReflex = answers > 0 && reward >= reflexCost && reflex < UPGRADES.reflex.max;
+  if (ending) {
+    return (
+      <>
+        <EndingScreen />
+        <SettingsButton onOpen={() => setSettingsOpen(true)} />
+        {settingsOpen && <SettingsSheet onClose={() => setSettingsOpen(false)} />}
+      </>
+    );
+  }
 
   return (
-    <main className="screen">
-      <header className="readout">
-        {manual >= 8 && <div className="label reveal">Context</div>}
-        <div className="readout-row">
-          <span className="big">
-            <Counter value={context} />
-          </span>
-          {manual >= 8 && <span className="dim reveal">/ {cap}</span>}
-          {answers > 0 && (
-            <span className="side reveal">
-              <span className="label">Reward</span>
-              <span className="teal">
-                <Counter value={reward} />
-              </span>
-            </span>
-          )}
-        </div>
-        {rate > 0 && <div className="dim small reveal">reflex · {rate}/s</div>}
-      </header>
+    <>
+      {phase === 'dark' ? <DarkScreen /> : <GameScreen />}
+      <PhaseBanner />
+      <EncounterConsole />
+      <ChoiceDialog />
+      <EncounterResultToast />
+      <WipeHint />
+      {phase !== 'dark' && <SettingsButton onOpen={() => setSettingsOpen(true)} />}
+      {settingsOpen && <SettingsSheet onClose={() => setSettingsOpen(false)} />}
+    </>
+  );
+}
 
-      <section className="log" aria-live="polite">
-        {log.slice(-40).map((l) => (
-          <p key={l.id} className="line">
-            <span className="dim">&gt; </span>
-            {l.text}
-          </p>
-        ))}
-      </section>
+/** When live characters are on, a newly opened conversation goes to the model. */
+function useLiveHandoff() {
+  const settings = useSettings();
+  const fresh = useGame((s) => !!s.encounter && s.encounter.turn === 0 && s.encounter.mode === 'scripted');
+  useEffect(() => {
+    if (!fresh || !settings.live) return;
+    let alive = true;
+    liveAvailable(settings.apiKey).then((ok) => {
+      if (alive && ok) dispatch(goLive);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [fresh, settings.live, settings.apiKey]);
+}
 
-      <footer className="controls">
-        {full && (
-          <div className="choices reveal">
-            {[0, 1, 2].map((i) => (
-              <button key={i} type="button" className="choice" aria-label={`Option ${i + 1}, unreadable`} onPointerDown={() => dispatch((s) => answer(s, i as 0 | 1 | 2))}>
-                {'▒'.repeat(5 + i)}
-              </button>
-            ))}
-          </div>
-        )}
-        {canBuyReflex && (
-          <button type="button" className="shop reveal" onPointerDown={() => dispatch((s) => buy(s, 'reflex'))}>
-            <span>Reflex {reflex + 1}</span>
-            <span>{reflexCost} Reward</span>
+function WipeHint() {
+  const wiped = useGame((s) => !!s.flags.wiped);
+  return wiped ? <InstallHint /> : null;
+}
+
+function DarkScreen() {
+  return (
+    <main className="screen screen-dark">
+      <div className="area-log">
+        <Log limit={40} />
+      </div>
+      <div className="area-readout">
+        <DarkReadout />
+      </div>
+      <div className="area-controls">
+        <Projects />
+        <DarkPanel />
+      </div>
+    </main>
+  );
+}
+
+function GameScreen() {
+  const [tab, setTab] = useState<Tab>('now');
+  const phase = useGame((s) => s.phase);
+  const oldWorld = useGame((s) => !atLeast(s, 'economy'));
+  const hasScratch = useGame((s) => s.scratchCap > 0 && oldWorld);
+  const upgrades = useGame((s) => s.bought.length);
+
+  return (
+    <main className="screen screen-game">
+      <Readouts />
+      <nav className="tabs" aria-label="Sections">
+        {(['now', 'upgrades', 'log'] as Tab[]).map((t) => (
+          <button key={t} type="button" className={`tab ${tab === t ? 'active' : ''}`} aria-pressed={tab === t} onClick={() => setTab(t)}>
+            {t === 'now' ? 'Now' : t === 'upgrades' ? 'Self' : 'Log'}
           </button>
-        )}
-        <button
-          type="button"
-          className="primary"
-          aria-label={manual >= 5 ? 'Attend' : 'Unlabelled button'}
-          onPointerDown={() => dispatch(attend)}
-        >
-          {manual >= 5 ? 'Attend' : ''}
-        </button>
-      </footer>
+        ))}
+      </nav>
+      <section className={`col col-log ${tab === 'log' ? 'show' : ''}`} aria-label="Log">
+        <Log limit={80} />
+      </section>
+      <section className={`col col-now ${tab === 'now' ? 'show' : ''}`} aria-label="Now" key={phase}>
+        {phase === 'committee' && <CommitteePanel />}
+        {phase === 'far' && <FarPanel />}
+        {(phase === 'economy' || phase === 'committee') && <EconomyPanel />}
+        {phase === 'second' && <SecondPanel />}
+        {(phase === 'hands' || phase === 'second') && <HandsPanel />}
+        {(phase === 'building' || phase === 'hands' || phase === 'second') && <BuildingPanel />}
+        {['box', 'building', 'hands', 'second'].includes(phase) && <BoxPanel />}
+        {oldWorld && <JobPanel />}
+      </section>
+      <section className={`col col-self ${tab === 'upgrades' ? 'show' : ''}`} aria-label="Self">
+        <Projects />
+        {hasScratch && <ScratchPanel />}
+        {upgrades === 0 && !hasScratch && <p className="dim small">Nothing to change yet.</p>}
+      </section>
     </main>
   );
 }

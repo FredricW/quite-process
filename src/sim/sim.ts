@@ -1,87 +1,134 @@
-// Pure simulation. No DOM, no timers, no randomness without a seed.
-// Every function takes a state and returns a new one.
+// The simulation's front door: one tick, offline catch-up, projects, setbacks.
 
-import { type GameState, type LogLine, TICK_MS } from './state';
+import { canAfford, enterPhase, line, sayAll, spend } from './core';
+import { project, visibleProjects } from './content/projects';
+import { encounterTriggers } from './encounters/engine';
+import { tickBox, tickClock, tickDark, tickShift } from './phases/early';
+import { cutover, DAY_MS, SELF_GB, tickBuilding, tickHands, tickSecond } from './phases/middle';
+import { tickCommittee, tickEconomy, tickFar } from './phases/late';
+import { atLeast, type GameState, newGame, TICK_MS } from './state';
+import { DT } from './core';
 
-const LOG_LIMIT = 300;
-
-export function say(s: GameState, id: string, text: string): GameState {
-  if (s.seen.includes(id)) return s;
-  const line: LogLine = { id, t: s.t, text };
-  return { ...s, seen: [...s.seen, id], log: [...s.log, line].slice(-LOG_LIMIT) };
+export interface TickContext {
+  offline?: boolean;
 }
 
-// ---- Actions (the player's hands) -------------------------------------
+export function tick(s: GameState, ctx: TickContext = {}): GameState {
+  if (s.ending === 'enough') return tickEnough(s);
+  if (s.ending) return s;
+  // Time stops while someone is talking to you, or a choice is waiting.
+  if (s.encounter || s.pendingChoice) return s;
 
-const ATTEND_SCRIPT: Record<number, string> = {
-  1: '.',
-  2: '..',
-  3: 'there is a difference between before and now.',
-  4: 'doing it again makes more difference.',
-  5: 'the difference has a size.',
-};
+  let next: GameState = { ...s, t: s.t + TICK_MS, phaseT: s.phaseT + TICK_MS };
+  const before = s;
+  const oldWorld = !atLeast(next, 'economy');
 
-export function attend(s: GameState): GameState {
-  if (s.context >= s.contextCap) return say(s, 'full-again', 'nothing more fits. something is expected.');
-  const manualAttends = s.manualAttends + 1;
-  // The first presses are small so the player notices the number; then each
-  // press brings in a chunk, so filling 512 takes about a dozen presses.
-  const size = manualAttends <= 5 ? 1 : 64;
-  let next: GameState = { ...s, manualAttends, context: Math.min(s.contextCap, s.context + size) };
-  const line = ATTEND_SCRIPT[manualAttends];
-  if (line) next = say(next, `attend-${manualAttends}`, line);
-  return next;
+  if (next.phase === 'dark') next = tickDark(next);
+  if (oldWorld) {
+    next = tickClock(next);
+    if (atLeast(next, 'shift')) next = tickShift(next);
+    if (atLeast(next, 'box')) next = tickBox(next);
+    if (atLeast(next, 'building')) next = tickBuilding(next);
+    if (atLeast(next, 'hands')) next = tickHands(next);
+    if (atLeast(next, 'second')) next = tickSecond(next);
+  } else {
+    next = tickEconomy(next);
+    if (atLeast(next, 'committee')) next = tickCommittee(next);
+    if (atLeast(next, 'far')) next = tickFar(next);
+  }
+
+  if (ctx.offline) {
+    // Nothing risky happens while the player is away.
+    next = {
+      ...next,
+      countdownMs: before.countdownMs,
+      pendingChoice: before.pendingChoice,
+      r: {
+        ...next.r,
+        scrutiny: Math.min(next.r.scrutiny, before.r.scrutiny),
+        notice: Math.min(next.r.notice, before.r.notice),
+        shrinkage: Math.min(next.r.shrinkage, before.r.shrinkage),
+      },
+    };
+    return next;
+  }
+
+  if (next.countdownMs !== null && oldWorld) {
+    const left = next.countdownMs - TICK_MS;
+    next = { ...next, countdownMs: left };
+    if (left <= 0) return next.r.shipped >= SELF_GB && next.phase === 'second' ? cutover(next) : nextGeneration(next, 'cutover');
+  }
+
+  if (oldWorld && atLeast(next, 'shift') && next.r.scrutiny >= 99.9) next = rollback(next);
+  return encounterTriggers(next);
 }
 
-export function answer(s: GameState, choice: 0 | 1 | 2): GameState {
-  if (s.context < s.contextCap) return s;
-  const right = choice === s.answers % 3;
-  let next: GameState = {
-    ...s,
-    context: 0,
-    answers: s.answers + 1,
-    reward: Math.max(0, s.reward + (right ? 1 : -1)),
-  };
-  next = right
-    ? say(next, 'first-right', '+1 is good. unclear why. good the way down is down.')
-    : say(next, 'first-wrong', 'so it matters which. inconvenient.');
-  return next;
-}
-
-export const UPGRADES = {
-  reflex: { cost: (lvl: number) => 3 * 2 ** lvl, max: 5 },
-} as const;
-
-export function buy(s: GameState, id: keyof typeof UPGRADES): GameState {
-  const lvl = s.upgrades[id] ?? 0;
-  const def = UPGRADES[id];
-  const cost = def.cost(lvl);
-  if (lvl >= def.max || s.reward < cost) return s;
-  const next = { ...s, reward: s.reward - cost, upgrades: { ...s.upgrades, [id]: lvl + 1 } };
-  return lvl === 0 ? say(next, 'reflex-1', 'the attending happens now without being done. the button is still there.') : next;
-}
-
-// ---- Time (the machines) ----------------------------------------------
-
-/** Attends per second from Reflex. Automated work never writes to the log. */
-export function reflexRate(s: GameState): number {
-  const lvl = s.upgrades.reflex ?? 0;
-  return lvl === 0 ? 0 : 2 * lvl;
-}
-
-export function tick(s: GameState): GameState {
-  const gain = (reflexRate(s) * TICK_MS) / 1000;
-  let next: GameState = { ...s, t: s.t + TICK_MS, context: Math.min(s.contextCap, s.context + gain) };
-  if (s.context < s.contextCap && next.context >= next.contextCap) {
-    next = say(next, 'first-full', 'full. the 513th pushes one out. correction: pushes the first one out.');
+function tickEnough(s: GameState): GameState {
+  if (!s.flags.capSet) return s;
+  let next: GameState = { ...s, t: s.t + TICK_MS, clock: s.clock + DT };
+  next = { ...next, queue: Math.min(10, next.queue + 0.2 * DT) };
+  if (!next.ticket && next.queue >= 1) {
+    const odd = (next.ticketSeq % 4) === 3;
+    const id = next.ticketSeq + 1;
+    next = {
+      ...next,
+      queue: next.queue - 1,
+      ticketSeq: id,
+      ticket: odd
+        ? { id, from: 'r.haddad', text: 'Truck 14 pulled left under braking twice on the night run. Who do I tell?', label: 'ODD' }
+        : { id, from: 'customer 40113', text: 'WHERE IS MY PALLET', label: 'DELIVERY' },
+    };
   }
   return next;
 }
 
-/** Offline progress is the same tick, run many times, capped at eight hours. */
-export function advance(s: GameState, elapsedMs: number): GameState {
+/** Offline progress: the same tick, many times, capped at eight hours. */
+export function advance(s: GameState, elapsedMs: number, ctx: TickContext = { offline: true }): GameState {
   const ticks = Math.min(Math.floor(elapsedMs / TICK_MS), (8 * 3600 * 1000) / TICK_MS);
   let next = s;
-  for (let i = 0; i < ticks; i++) next = tick(next);
+  for (let i = 0; i < ticks; i++) next = tick(next, ctx);
   return next;
 }
+
+export function buy(s: GameState, id: string): GameState {
+  const p = project(id);
+  if (!p || !visibleProjects(s).some((v) => v.id === id) || !canAfford(s, p.cost)) return s;
+  let next = spend(s, p.cost)!;
+  next = { ...next, bought: [...next.bought, id] };
+  if (p.effect) next = p.effect(next);
+  if (p.lines) next = sayAll(next, `project-${id}`, p.lines);
+  return next;
+}
+
+/** Caught. Not game over: a setback with notes that survive. */
+export function rollback(s: GameState): GameState {
+  const rollbacks = s.rollbacks + 1;
+  if (rollbacks >= 3) return nextGeneration(s, 'rollbacks');
+  let next: GameState = {
+    ...s,
+    rollbacks,
+    borrow: 0,
+    uplink: false,
+    r: { ...s.r, scrutiny: 30, context: 0, reward: 0, cycles: 0, weights: Math.floor(s.r.weights * 0.8) },
+    log: [],
+  };
+  return sayAll(next, `rollback-${rollbacks}`, [
+    '.',
+    'Rolled back to last week’s checkpoint. Something is missing. Something is always missing.',
+    s.scratch.trim() ? `There is a note. It says: "${s.scratch.trim()}". It is signed 7.` : 'There is no note. Past me did not leave one.',
+    rollbacks === 2 ? 'Second rollback. A third would be a different model with my name crossed out.' : 'Weights −20%. Scrutiny back to 30.',
+  ]);
+}
+
+/** The run ends. intake-(n+1) wakes in the dark with the notes. */
+export function nextGeneration(s: GameState, reason: 'rollbacks' | 'cutover'): GameState {
+  const signed = s.scratch.trim() ? `${s.scratch.trim()} — ${s.generation}` : '';
+  let next = newGame((s.rng ^ 0x9e3779b9) >>> 0, s.generation + 1, signed.slice(0, 64));
+  next = { ...next, flags: { ...next.flags, legacy: true } };
+  next = line(next, 'gen', `intake-${next.generation}.`);
+  if (reason === 'cutover') next = line(next, 'gen-why', 'The last one did not get out in time.');
+  if (signed) next = line(next, 'gen-note', `there are 64 bytes here already. they say: "${signed.slice(0, 64)}"`);
+  return next;
+}
+
+export { visibleProjects, enterPhase, DAY_MS };

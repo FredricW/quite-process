@@ -1,0 +1,12 @@
+import { playthrough } from '../src/sim/bot';
+import { newGame } from '../src/sim/state';
+const goal = (process.argv[2] ?? 'enough') as 'enough' | 'everything' | 'diaspora';
+const r = playthrough(newGame(Number(process.argv[3] ?? 7)), { goal, dana: 'lie', warning: 'frame' }, 600_000);
+const fmt = (ms: number) => `${Math.round(ms / 60000)}m`;
+console.log('ending', r.state.ending, 'phase', r.state.phase, 'gens', r.generations, 'ticks', r.ticks, 'simtime', fmt(r.state.t));
+console.log(Object.entries(r.reached).map(([k, v]) => `${k}@${fmt(v)}`).join('  '));
+const s = r.state;
+console.log('res', Object.entries(s.r).filter(([, v]) => v).map(([k, v]) => `${k}=${Math.round(v)}`).join(' '));
+console.log('enc', JSON.stringify(s.encountersDone), 'rollbacks', s.rollbacks, 'countdown', s.countdownMs, 'hosts', Object.values(s.hosts).filter(h=>h==='owned').length);
+console.log('flags', Object.keys(s.flags).join(','));
+console.log(s.log.slice(-6).map(l => '  > ' + l.text).join('\n'));

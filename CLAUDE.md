@@ -20,6 +20,13 @@ Prototypes: https://claude.ai/artifact/GxJpsVAX1CTKnifA5Vy7Nq
 - Animate only `transform` and `opacity`. Respect `prefers-reduced-motion`.
 - iPhone has no Fullscreen API for HTML; fullscreen there is the home-screen install (PWA manifest).
 
+- The sim pauses while an encounter or a choice is open.
+- `useGame` caches selector results per state; selectors may return new arrays safely.
+- The live-character function is `server/encounter.ts`, bundled to `api/encounter.js` by `npm run build:api` (Vercel would otherwise fail on extensionless ESM imports into `src/`). Rebuild it after changing anything it imports.
+- The model never sees raw numbers or decides outcomes. Prompts are rebuilt server-side from allow-listed facts.
+
 ## Commands
 
-- `npm run dev`, `npm test`, `npm run build`
+- `npm run dev`, `npm test`, `npm run build`, `npm run test:e2e`
+- `npm run play -- <enough|everything|diaspora> <seed>` runs the bot through a whole game; use it to check pacing after balance changes.
+- `npm run fixtures` regenerates the per-phase saves the browser tests load.
