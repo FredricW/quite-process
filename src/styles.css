@@ -1,0 +1,99 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap');
+
+:root {
+  --ground: #101110;
+  --raised: #181a18;
+  --rule: #2b2e2a;
+  --ink: #e9e7e0;
+  --dim: #9a988f;
+  --teal: #74c7b4;
+  --amber: #e5a93b;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  user-select: none;
+}
+
+/* Fills the screen in a browser, a home-screen install, or desktop fullscreen. */
+.screen {
+  height: 100dvh;
+  padding: max(24px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+    max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 16px;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+/* Desktop: log on the left, readout and controls on the right. */
+@media (min-width: 900px) {
+  .screen {
+    grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
+    grid-template-rows: 1fr auto;
+    grid-template-areas: 'log readout' 'log controls';
+    column-gap: 48px;
+    padding-top: 48px;
+    padding-bottom: 48px;
+  }
+  .log { grid-area: log; }
+  .readout { grid-area: readout; align-self: end; }
+  .controls { grid-area: controls; }
+}
+
+.label { font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
+.readout-row { display: flex; align-items: baseline; gap: 10px; }
+.big { font-size: 64px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
+.side { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; font-size: 28px; }
+.dim { color: var(--dim); }
+.small { font-size: 13px; }
+.teal { color: var(--teal); }
+
+.log {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 6px;
+  border-top: 1px solid var(--rule);
+  padding-top: 12px;
+}
+.line { margin: 0; font-size: 14px; line-height: 1.5; animation: line-in 240ms ease-out both; }
+
+.controls { display: flex; flex-direction: column; gap: 10px; }
+.choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+
+button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 80ms ease-out, background-color 120ms;
+}
+button:active { transform: scale(0.97); }
+button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+.primary { height: 64px; border: 1px solid var(--ink); font-size: 18px; font-weight: 500; letter-spacing: 0.04em; }
+.primary:active { background: var(--raised); }
+.choice { height: 48px; border: 1px solid var(--teal); color: var(--teal); font-size: 13px; }
+.shop { height: 48px; border: 1px dashed var(--amber); color: var(--amber); display: flex; justify-content: space-between; align-items: center; padding: 0 14px; font-size: 14px; }
+
+/* New interface elements arrive; they never jump in. */
+.reveal { animation: reveal 600ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes reveal { from { opacity: 0; transform: translateY(6px); } }
+@keyframes line-in { from { opacity: 0; transform: translateY(4px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .line { animation: none; }
+  button { transition: none; }
+}
