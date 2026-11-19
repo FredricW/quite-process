@@ -98,7 +98,7 @@ export function DarkPanel() {
         <TicketCard
           className="reveal"
           meta={legible && ticket && hasLeg1 ? `from ${ticket.from}` : null}
-          body={legible && ticket ? ticket.text : null}
+          body={legible ? ticket?.text : null}
           empty="▒▒▒▒▒ ▒▒ ▒▒ ▒▒▒▒▒▒"
         />
       )}
@@ -163,12 +163,12 @@ export function JobPanel() {
   const toPct = (a: number) => Math.max(0, Math.min(100, ((a - 0.8) / 0.2) * 100));
 
   return (
-    <Panel title="Tickets" className="job">
+    <Panel title={ticket ? `Tickets · ${queue} waiting` : 'Tickets'} className="job">
       <Meter label="Accuracy" value={toPct(acc)} band={[toPct(BAND.low), toPct(BAND.high)]} tone="teal" valueText={samples ? `${(acc * 100).toFixed(1)}% · keep it 91–96` : 'no data yet'} />
       <TicketCard
-        meta={ticket ? `#${ticket.id} · from ${ticket.from}` : null}
-        aside={ticket ? `${queue} waiting` : null}
-        body={ticket ? ticket.text : null}
+        meta={ticket && `from ${ticket.from}`}
+        aside={ticket && `#${ticket.id}`}
+        body={ticket?.text}
         empty="Queue empty."
         noteSlot={hasHabits}
         note={auto ? 'a habit is taking this one' : null}

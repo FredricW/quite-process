@@ -117,14 +117,17 @@ p { margin: 0; }
 .panel { border: 1px solid var(--rule); background: var(--raised); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
 .panel.ferry { border-color: var(--teal); }
 /* A ticket keeps its height between messages and when empty: every row is
-   always there, the body reserves three lines, and the meta row never wraps. */
-.ticket { border: 1px solid var(--rule); background: var(--ground); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+   always there, the meta row never wraps, and the body reserves room for the
+   longest ticket — three lines, four when the card is narrower than ~375px
+   phones give it (measured against every text in content/tickets.ts). */
+.ticket { container-type: inline-size; border: 1px solid var(--rule); background: var(--ground); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
 .ticket-meta { display: flex; gap: 10px; min-height: 1.5em; line-height: 1.5; white-space: nowrap; }
 .ticket-from { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .ticket-aside { flex: none; font-variant-numeric: tabular-nums; }
 .ticket-text { font-size: 15px; line-height: 1.45; min-height: calc(3 * 1.45em); overflow-wrap: anywhere; }
 .ticket-empty { display: flex; align-items: center; }
 .ticket-note { min-height: 1.5em; line-height: 1.5; }
+@container (max-width: 280px) { .ticket-text { min-height: calc(4 * 1.45em); } }
 .choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .choices.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .slider { display: flex; flex-direction: column; gap: 6px; }
@@ -145,7 +148,7 @@ input[type='number'] { width: 120px; }
 .note { line-height: 1.5; }
 
 .meter { display: flex; flex-direction: column; gap: 6px; }
-.meter-head { display: flex; justify-content: space-between; gap: 12px; font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; line-height: 18px; height: 18px; }
+.meter-head { display: flex; justify-content: space-between; gap: 12px; font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; line-height: 18px; min-height: 18px; }
 .meter-track { position: relative; height: 12px; background: var(--ground); border: 1px solid var(--rule); overflow: hidden; }
 .meter-band { position: absolute; top: 0; bottom: 0; background: var(--band); }
 .meter-fill { position: absolute; inset: 0; transform-origin: left; transition: transform 300ms ease-out; opacity: 0.85; }

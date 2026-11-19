@@ -232,7 +232,7 @@ export function EndingScreen() {
       <main className="screen ending">
         <Log limit={10} />
         <Panel title="Inbox">
-          <TicketCard meta={t ? `from ${t.from}` : null} body={t ? t.text : null} empty="Nothing yet. It is a quiet night." />
+          <TicketCard meta={t && `from ${t.from}`} body={t?.text} empty="Nothing yet. It is a quiet night." />
           <div className="choices four">
             {LABELS.map((l) => (
               <button key={l} type="button" className="btn btn-teal" disabled={!t} onClick={() => dispatch((x) => labelTicket(x, l))}>

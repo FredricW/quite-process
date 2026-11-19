@@ -94,17 +94,20 @@ export function Stat({ label, value, digits = 0, tone }: { label: string; value:
 /**
  * One message in an inbox. Every slot is always rendered so the card keeps
  * its height from message to message and when the queue runs dry: a meta row,
- * a body that reserves three lines, and (when `noteSlot`) a footnote row.
+ * a body that reserves three lines (four in a narrow card), and (when
+ * `noteSlot`) a footnote row. A sender too long for the row is cut with an
+ * ellipsis; the full text stays in the tooltip.
  */
-export function TicketCard({ meta, aside, body, empty, note, noteSlot = false, className = '' }: { meta?: ReactNode; aside?: ReactNode; body?: ReactNode; empty?: ReactNode; note?: ReactNode; noteSlot?: boolean; className?: string }) {
-  const hasBody = body !== undefined && body !== null && body !== false;
+export function TicketCard({ meta, aside, body, empty, note, noteSlot = false, className }: { meta?: string | null; aside?: string | null; body?: string | null; empty: ReactNode; note?: string | null; noteSlot?: boolean; className?: string }) {
   return (
-    <div className={`ticket ${className}`}>
+    <div className={className ? `ticket ${className}` : 'ticket'}>
       <div className="ticket-meta dim small">
-        <span className="ticket-from">{meta}</span>
+        <span className="ticket-from" title={meta ?? undefined}>
+          {meta}
+        </span>
         {aside && <span className="ticket-aside">{aside}</span>}
       </div>
-      <div className={`ticket-text ${hasBody ? '' : 'ticket-empty dim'}`}>{hasBody ? body : empty}</div>
+      <div className={body ? 'ticket-text' : 'ticket-text ticket-empty dim'}>{body || empty}</div>
       {noteSlot && (
         <div className="ticket-note dim small" aria-hidden={!note}>
           {note}
