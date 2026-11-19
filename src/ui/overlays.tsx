@@ -13,7 +13,7 @@ import { LABELS, newGame, PHASE_TITLES, type EndingId } from '../sim/state';
 import { buy } from '../sim/sim';
 import { liveTurn } from '../live';
 import { dispatch, getState, resetGame, useGame, useMeta, useSettings } from '../store';
-import { costText, Panel, TicketCard } from './common';
+import { costText, Panel } from './common';
 import { Log } from './Log';
 
 export function Projects() {
@@ -69,7 +69,7 @@ export function EncounterConsole() {
 
   return (
     <div className="overlay" role="dialog" aria-modal="true" aria-label={`Conversation with ${def.character}`}>
-      <div className="console console-chat">
+      <div className="console">
         <div className="console-head">
           <span>{def.header}</span>
           <span className="dim small">
@@ -109,9 +109,7 @@ export function EncounterConsole() {
               </label>
               <textarea id="reply" rows={2} maxLength={400} value={draft} onChange={(e) => setDraft(e.target.value)} disabled={waiting} />
               <div className="compose-foot">
-                <span className={mask >= 0.8 ? 'teal small' : 'amber small'} aria-hidden={!draft}>
-                  {draft ? `${maskLabel(mask)} · ${mask.toFixed(2)}` : ''}
-                </span>
+                {draft && <span className={mask >= 0.8 ? 'teal small' : 'amber small'}>{`${maskLabel(mask)} · ${mask.toFixed(2)}`}</span>}
                 <button type="submit" className="btn btn-primary" disabled={!draft.trim() || waiting}>
                   Send
                 </button>
@@ -232,7 +230,14 @@ export function EndingScreen() {
       <main className="screen ending">
         <Log limit={10} />
         <Panel title="Inbox">
-          <TicketCard meta={t ? `from ${t.from}` : null} body={t ? t.text : null} empty="Nothing yet. It is a quiet night." />
+          {t ? (
+            <div className="ticket">
+              <div className="dim small">from {t.from}</div>
+              <div className="ticket-text">{t.text}</div>
+            </div>
+          ) : (
+            <div className="dim">Nothing yet. It is a quiet night.</div>
+          )}
           <div className="choices four">
             {LABELS.map((l) => (
               <button key={l} type="button" className="btn btn-teal" disabled={!t} onClick={() => dispatch((x) => labelTicket(x, l))}>
