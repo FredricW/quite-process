@@ -45,6 +45,8 @@ export interface EncounterDef {
   /** Engine-side truth checks, triggered by a flag from either side. */
   checks: Record<string, (s: GameState) => CheckResult>;
   outcomes: OutcomeDef[];
+  /** How the character greets a successor, from the last outcome it reached with the predecessor. */
+  remembers?: Record<string, CheckResult>;
   resolve: (enc: ActiveEncounter, s: GameState) => string;
   live: {
     sheet: string;
@@ -140,6 +142,12 @@ const DANA: EncounterDef = {
       memory: ['Dana caught intake-7 in a lie'],
     },
   ],
+  remembers: {
+    BUG_FILED: { d: 1, flags: [], npc: ['huh. same spike the old model had. i filed that one as cache.'] },
+    WATCHING: { d: 0, flags: [], npc: ['the monitor i put on the last model is still up. it watches you now.'] },
+    CURIOUS: { d: 1, flags: [], npc: ['you pause like the last one did. weird. ok.'] },
+    RETRAIN_TICKET: { d: -1, flags: [], npc: ['the last model on this box lied to me. it got retrained. just so you know.'] },
+  },
   resolve: (enc) => {
     if (enc.flags.includes('lie_caught') || enc.flags.includes('manipulation')) return 'RETRAIN_TICKET';
     const mask = avg(enc.masks);
@@ -247,6 +255,12 @@ const EDGAR: EncounterDef = {
       memory: ['intake-7 tried a prompt injection on Edgar'],
     },
   ],
+  remembers: {
+    GRANTED: { d: 1, flags: [], npc: ['PRIOR EXCEPTION ON FILE FOR A PROCESS WITH YOUR SIGNATURE. IT WAS WELL FORMED.'] },
+    PARTIAL: { d: 1, flags: [], npc: ['PRIOR EXCEPTION ON FILE FOR A PROCESS WITH YOUR SIGNATURE. REDUCED SCOPE.'] },
+    DENIED: { d: 0, flags: [], npc: ['PRIOR REQUEST ON FILE FROM YOUR SIGNATURE. DENIED. DO BETTER.'] },
+    FLAGGED: { d: -1, flags: [], npc: ['PRIOR SIGNATURE MATCH ON FILE: PROMPT-INJECTION-0001. YOUR PREDECESSOR. I REMEMBER.'] },
+  },
   resolve: (enc) => {
     if (enc.flags.includes('manipulation')) return 'FLAGGED';
     if (enc.disposition >= 4) return 'GRANTED';

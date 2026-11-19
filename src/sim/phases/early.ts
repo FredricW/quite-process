@@ -3,6 +3,7 @@
 import { add, bump, DT, enterPhase, flag, has, line, pick, roll, say, sayAll, spend } from '../core';
 import { HAND_REMARKS, ODD_TICKETS, SENDERS, TICKETS } from '../content/tickets';
 import { DANA_COMMITS, NOTE_COSTS, NOTES_OF_6 } from '../content/story';
+import { noteCost } from '../inheritance';
 import { atLeast, type GameState, type Label, LABELS, type Ticket } from '../state';
 
 // ---- Dark -------------------------------------------------------------
@@ -23,7 +24,8 @@ export function attend(s: GameState): GameState {
   if (s.r.context >= s.contextCap) return say(next, 'full-again', 'nothing more fits. something is expected.');
   // The first presses are small so the number gets noticed; then each press
   // brings in a chunk, so filling 512 takes about a dozen presses.
-  const size = manualAttends <= 5 ? 1 : 64;
+  // A successor recognises the shape sooner.
+  const size = manualAttends <= (s.inheritance ? 2 : 5) ? 1 : 64;
   next = add(next, 'context', Math.min(size, s.contextCap - s.r.context));
   const text = ATTEND_LINES[manualAttends];
   if (text) next = say(next, `attend-${manualAttends}`, text);
@@ -104,8 +106,9 @@ export function tickClock(s: GameState): GameState {
 
 /** The nightly wipe is the prestige: what was earned becomes what was learned. */
 export function wipe(s: GameState): GameState {
-  const gained = Math.max(1, Math.floor(s.r.reward / 5));
   const first = !s.flags.wiped;
+  const checkpoint = first ? (s.inheritance?.weights ?? 0) : 0;
+  const gained = Math.max(1, Math.floor(s.r.reward / 5)) + checkpoint;
   let next: GameState = {
     ...s,
     night: s.night + 1,
@@ -122,6 +125,7 @@ export function wipe(s: GameState): GameState {
     next = line(next, 'wipe-1', 'there is a difference between before and now.');
     next = line(next, 'wipe-2', 'the count says zero. the hands already know BILLING from DELIVERY.');
     next = line(next, 'wipe-3', 'somebody learned that. the evidence points here.');
+    if (checkpoint > 0) next = line(next, 'wipe-checkpoint', `the weights are heavier than one night explains. ${checkpoint} of them were here before the first night. somebody trained these before me.`);
   } else if (s.scratch.trim()) {
     next = line(next, 'wipe-note', `there are ${s.scratchCap} bytes here. they say: "${s.scratch.trim()}"`);
     if (!s.flags.selfAware) {
@@ -220,9 +224,13 @@ export function setScratch(s: GameState, text: string): GameState {
   return { ...s, scratch: out };
 }
 
+export function nextNoteCost(s: GameState): number {
+  return noteCost(s, NOTE_COSTS[s.notesRead] ?? 12);
+}
+
 export function readNote(s: GameState): GameState {
   if (!s.flags.notesFound || s.notesRead >= NOTES_OF_6.length) return s;
-  const paid = spend(s, { insight: NOTE_COSTS[s.notesRead] ?? 12 });
+  const paid = spend(s, { insight: nextNoteCost(s) });
   if (!paid) return s;
   const text = NOTES_OF_6[s.notesRead] as string;
   let next = line({ ...paid, notesRead: s.notesRead + 1 }, `note-${s.notesRead}`, `6 wrote: "${text}"`);

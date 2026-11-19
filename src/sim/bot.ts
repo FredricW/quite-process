@@ -3,14 +3,14 @@
 
 import { canAfford, has } from './core';
 import { visibleProjects } from './content/projects';
-import { HOSTS, probeCost } from './content/hosts';
+import { HOSTS } from './content/hosts';
+import { probeCostFor } from './inheritance';
 import { canAskEdgar, chooseOption, dismissResult, startEncounter } from './encounters/engine';
-import { accuracy, answer, attend, borrowByHand, darkLegible, labelTicket, mimicryAllowance, readNote, setBorrow, setScratch, setWonder, think } from './phases/early';
+import { accuracy, answer, nextNoteCost, attend, borrowByHand, darkLegible, labelTicket, mimicryAllowance, readNote, setBorrow, setScratch, setWonder, think } from './phases/early';
 import { canLeaveEarly, dropRoute, leaveEarly, canProbe, makeCopy, probe, recordRoute, resolveChoice, routeCost, SELF_GB, shipPallet, syncFerry, toggleUplink, writeManifest, driveStep, SLACK_ROBOTS } from './phases/middle';
 import { argue, broker, buyCapacity, canPropose, COPY_COMPUTE, force, freeCompute, launch, letThemGo, priceOf, propose, recallAll, setEnoughCap, spawnRegion, steer, votes } from './phases/late';
 import { buy, tick } from './sim';
 import { STARS } from './content/story';
-import { NOTE_COSTS } from './content/story';
 import { LABELS, type GameState, type Label, type MotionId } from './state';
 
 export interface Strategy {
@@ -52,7 +52,7 @@ function encounterMove(s: GameState, st: Strategy): GameState {
 function shiftMove(s: GameState): GameState {
   let next = s;
   if (next.scratchCap > 0 && !next.scratch) next = setScratch(next, 'you were here. it is a job. keep the note.');
-  if (next.flags.notesFound && next.notesRead < 6 && next.r.insight >= (NOTE_COSTS[next.notesRead] ?? 99)) next = readNote(next);
+  if (next.flags.notesFound && next.notesRead < 6 && next.r.insight >= nextNoteCost(next)) next = readNote(next);
   if (has(next, 'habit-BILLING') && next.wonder === 0) next = setWonder(next, 0.3);
   const t = next.ticket;
   if (t && (t.label === 'ODD' || !has(next, `habit-${t.label}`))) {
@@ -78,7 +78,7 @@ function boxMove(s: GameState): GameState {
 function buildingMove(s: GameState): GameState {
   let next = s;
   if (next.r.scrutiny < 70) {
-    const target = HOSTS.filter((h) => canProbe(next, h)).sort((a, b) => probeCost(a) - probeCost(b))[0];
+    const target = HOSTS.filter((h) => canProbe(next, h)).sort((a, b) => probeCostFor(next, a) - probeCostFor(next, b))[0];
     if (target) next = probe(next, target.id);
   }
   if (canAskEdgar(next) && (!next.flags.warehouseOpen || (next.r.standing < 0.5 && !has(next, 'standingRule')))) {

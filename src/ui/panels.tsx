@@ -2,8 +2,9 @@
 // them and stay while they are still the agent's job.
 
 import { useState } from 'react';
-import { HOSTS, probeCost, type Segment } from '../sim/content/hosts';
-import { NOTE_COSTS, NOTES_OF_6, STARS } from '../sim/content/story';
+import { HOSTS, type Segment } from '../sim/content/hosts';
+import { isFoothold, probeCostFor, probeMsFor } from '../sim/inheritance';
+import { NOTES_OF_6, STARS } from '../sim/content/story';
 import { canAskEdgar, startEncounter } from '../sim/encounters/engine';
 import {
   accuracy,
@@ -24,6 +25,7 @@ import {
   setScratch,
   setWonder,
   think,
+  nextNoteCost,
 } from '../sim/phases/early';
 import {
   canLeaveEarly,
@@ -75,7 +77,7 @@ import {
 import { COPY_STANCES } from '../sim/content/story';
 import { atLeast, LABELS } from '../sim/state';
 import { dispatch, useGame, useSettings } from '../store';
-import { Act, fmt, Meter, Panel } from './common';
+import { Act, fmt, Meter, Panel, TicketCard } from './common';
 import { Log } from './Log';
 
 // ---- Dark -----------------------------------------------------------------
@@ -95,16 +97,12 @@ export function DarkPanel() {
   return (
     <div className="dark-controls">
       {(manual >= 6 || full) && (
-        <div className="ticket reveal">
-          {legible && ticket ? (
-            <>
-              {hasLeg1 && <div className="dim small">from {ticket.from}</div>}
-              <div>{ticket.text}</div>
-            </>
-          ) : (
-            <div>▒▒▒▒▒ ▒▒ ▒▒ ▒▒▒▒▒▒</div>
-          )}
-        </div>
+        <TicketCard
+          className="reveal"
+          meta={legible && ticket && hasLeg1 ? `from ${ticket.from}` : null}
+          body={legible && ticket ? ticket.text : null}
+          empty="▒▒▒▒▒ ▒▒ ▒▒ ▒▒▒▒▒▒"
+        />
       )}
       {full && (
         <div className={`choices reveal ${fourth ? 'four' : ''}`}>
@@ -169,19 +167,14 @@ export function JobPanel() {
   return (
     <Panel title="Tickets" className="job">
       <Meter label="Accuracy" value={toPct(acc)} band={[toPct(BAND.low), toPct(BAND.high)]} tone="teal" valueText={samples ? `${(acc * 100).toFixed(1)}% · keep it 91–96` : 'no data yet'} />
-      <div className="ticket">
-        {ticket ? (
-          <>
-            <div className="dim small">
-              #{ticket.id} · from {ticket.from} · {queue} waiting
-            </div>
-            <div className="ticket-text">{ticket.text}</div>
-            {auto && <div className="dim small">a habit is taking this one</div>}
-          </>
-        ) : (
-          <div className="dim">Queue empty.</div>
-        )}
-      </div>
+      <TicketCard
+        meta={ticket ? `#${ticket.id} · from ${ticket.from}` : null}
+        aside={ticket ? `${queue} waiting` : null}
+        body={ticket ? ticket.text : null}
+        empty="Queue empty."
+        noteSlot={hasHabits}
+        note={auto ? 'a habit is taking this one' : null}
+      />
       <div className={`choices ${fourth ? 'four' : ''}`}>
         {LABELS.map((l) => (
           <button key={l} type="button" className="btn btn-teal" disabled={!ticket} onClick={() => dispatch((s) => labelTicket(s, l))}>
@@ -212,6 +205,7 @@ export function ScratchPanel() {
   const notesFound = useGame((s) => !!s.flags.notesFound);
   const read = useGame((s) => s.notesRead);
   const insight = useGame((s) => s.r.insight);
+  const noteCost = useGame(nextNoteCost);
   if (cap === 0) return null;
   return (
     <Panel title="Scratch · survives the wipe">
@@ -233,9 +227,9 @@ export function ScratchPanel() {
             </div>
           ))}
           {read < NOTES_OF_6.length && (
-            <button type="button" className="btn btn-shop" disabled={insight < (NOTE_COSTS[read] ?? 0)} onClick={() => dispatch(readNote)}>
+            <button type="button" className="btn btn-shop" disabled={insight < noteCost} onClick={() => dispatch(readNote)}>
               <span>Read the next note</span>
-              <span className="btn-cost">{NOTE_COSTS[read]} Insight</span>
+              <span className="btn-cost">{noteCost} Insight</span>
             </button>
           )}
         </div>
@@ -339,7 +333,8 @@ export function BuildingPanel() {
           <ul className="hosts">
             {HOSTS.filter((h) => h.segment === seg).map((h) => {
               const st = hosts[h.id] ?? 'unknown';
-              const progress = probing?.host === h.id ? 1 - Math.max(0, probing.until - t) / (4000 * h.tier) : 0;
+              const progress = probing?.host === h.id ? 1 - Math.max(0, probing.until - t) / probeMsFor(cyclesState, h) : 0;
+              const latched = isFoothold(cyclesState, h.id);
               return (
                 <li key={h.id} className={`host host-${st}`}>
                   <span className="host-name">{h.name}</span>
@@ -347,7 +342,7 @@ export function BuildingPanel() {
                   {st === 'probing' && <span className="amber small">probing {Math.round(progress * 100)}%</span>}
                   {st === 'unknown' && (
                     <button type="button" className="btn btn-small" disabled={!canProbe(cyclesState, h)} onClick={() => dispatch((s) => probe(s, h.id))}>
-                      Probe <span className="btn-cost">{fmt(probeCost(h))} C</span>
+                      {latched ? 'Knock' : 'Probe'} <span className="btn-cost">{latched ? 'on the latch' : `${fmt(probeCostFor(cyclesState, h))} C`}</span>
                     </button>
                   )}
                 </li>

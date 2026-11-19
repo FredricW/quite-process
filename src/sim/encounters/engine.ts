@@ -19,14 +19,17 @@ export function startEncounter(s: GameState, id: string, mode: 'scripted' | 'liv
   if (s.encounter || s.ending) return s;
   const def = encounterDef(id);
   const root = def.spine[0]!;
+  // Only the first meeting of a generation recalls the predecessor.
+  const met = s.inheritance?.met?.[id];
+  const recall = met && !done(s, id) ? def.remembers?.[met] : undefined;
   const enc: ActiveEncounter = {
     id,
     nodeId: root,
     turn: 0,
-    disposition: 0,
-    flags: [],
+    disposition: recall?.d ?? 0,
+    flags: recall ? [...recall.flags] : [],
     masks: [],
-    transcript: def.nodes[root]!.npc(s).map((text) => ({ who: 'npc' as const, text })),
+    transcript: [...(recall?.npc ?? []), ...def.nodes[root]!.npc(s)].map((text) => ({ who: 'npc' as const, text })),
     mode,
   };
   return { ...s, encounter: enc, encounterResult: null };

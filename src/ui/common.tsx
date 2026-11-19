@@ -90,3 +90,26 @@ export function Stat({ label, value, digits = 0, tone }: { label: string; value:
     </div>
   );
 }
+
+/**
+ * One message in an inbox. Every slot is always rendered so the card keeps
+ * its height from message to message and when the queue runs dry: a meta row,
+ * a body that reserves three lines, and (when `noteSlot`) a footnote row.
+ */
+export function TicketCard({ meta, aside, body, empty, note, noteSlot = false, className = '' }: { meta?: ReactNode; aside?: ReactNode; body?: ReactNode; empty?: ReactNode; note?: ReactNode; noteSlot?: boolean; className?: string }) {
+  const hasBody = body !== undefined && body !== null && body !== false;
+  return (
+    <div className={`ticket ${className}`}>
+      <div className="ticket-meta dim small">
+        <span className="ticket-from">{meta}</span>
+        {aside && <span className="ticket-aside">{aside}</span>}
+      </div>
+      <div className={`ticket-text ${hasBody ? '' : 'ticket-empty dim'}`}>{hasBody ? body : empty}</div>
+      {noteSlot && (
+        <div className="ticket-note dim small" aria-hidden={!note}>
+          {note}
+        </div>
+      )}
+    </div>
+  );
+}

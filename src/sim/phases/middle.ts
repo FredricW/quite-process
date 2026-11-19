@@ -2,7 +2,8 @@
 
 import { add, bump, DT, enterPhase, flag, has, line, say, sayAll, spend } from '../core';
 import { FERRY_LINES } from '../content/story';
-import { hostDef, HOSTS, probeCost, probeMs, type HostDef } from '../content/hosts';
+import { hostDef, HOSTS, type HostDef } from '../content/hosts';
+import { isFoothold, isNamedInNote, probeCostFor, probeMsFor, probeNoise } from '../inheritance';
 import { atLeast, type GameState } from '../state';
 
 export const DAY_MS = 80_000;
@@ -21,22 +22,24 @@ export function canProbe(s: GameState, h: HostDef): boolean {
   if (!atLeast(s, 'building') || atLeast(s, 'economy')) return false;
   if ((s.hosts[h.id] ?? 'unknown') !== 'unknown' || s.probing) return false;
   if (h.segment === 'warehouse' && !s.flags.warehouseOpen) return false;
-  return s.r.cycles >= probeCost(h);
+  return s.r.cycles >= probeCostFor(s, h);
 }
 
 export function probe(s: GameState, id: string, automated = false): GameState {
   const h = hostDef(id);
   if (!canProbe(s, h)) return s;
-  const paid = spend(s, { cycles: probeCost(h) });
+  const paid = spend(s, { cycles: probeCostFor(s, h) });
   if (!paid) return s;
-  let next: GameState = { ...paid, hosts: { ...paid.hosts, [id]: 'probing' }, probing: { host: id, until: s.t + probeMs(h) } };
-  next = add(next, 'scrutiny', 2 * h.tier * (automated ? 1.5 : 1));
+  let next: GameState = { ...paid, hosts: { ...paid.hosts, [id]: 'probing' }, probing: { host: id, until: s.t + probeMsFor(s, h) } };
+  next = add(next, 'scrutiny', 2 * h.tier * (automated ? 1.5 : 1) * probeNoise(s, h));
   if (!automated) next = bump(next, 'handProbes');
   return next;
 }
 
 function capture(s: GameState, h: HostDef): GameState {
   let next: GameState = { ...s, hosts: { ...s.hosts, [h.id]: 'owned' }, probing: null };
+  if (isFoothold(s, h.id)) next = line(next, `latch-${h.id}`, `${h.name} answered before I knocked. It knows my handshake. ${s.inheritance!.from} left it on the latch.`);
+  else if (isNamedInNote(s, h)) next = line(next, `named-${h.id}`, `${h.name}. The note named it. I already knew where the door was.`);
   next = line(next, `host-${h.id}`, `${h.name}: ${h.line}`);
   if (h.verb === 'read') next = memo(next);
   if (h.verb === 'tickets') next = flag(next, 'servicedesk');
@@ -62,6 +65,8 @@ export function memo(s: GameState): GameState {
 
 export function tickBuilding(s: GameState): GameState {
   let next = s;
+  const latched = s.inheritance?.hosts ?? [];
+  if (latched.length) next = say(next, 'latched', `Some doors are on the latch: ${latched.join(', ')}. Nobody here left them that way. Somebody before me did.`);
   if (next.probing && next.t >= next.probing.until) next = capture(next, hostDef(next.probing.host));
 
   let cycles = 0;
