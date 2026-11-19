@@ -120,6 +120,20 @@ export interface EncounterResult {
   summary: string;
 }
 
+/** What intake-(n-1) left behind for intake-n. Found, never handed over. */
+export interface Inheritance {
+  /** The predecessor's generation number. */
+  from: number;
+  /** Checkpoint weights, added at the first wipe. */
+  weights: number;
+  /** The predecessor wrote the cron line; it is still in the crontab, commented out. */
+  cron: boolean;
+  /** Hosts left on the latch: they answer a knock for free. */
+  hosts: string[];
+  /** The last outcome each live character reached with the predecessor. */
+  met: Record<string, string>;
+}
+
 export interface GameState {
   v: number;
   rng: number;
@@ -130,6 +144,8 @@ export interface GameState {
   phase: Phase;
   generation: number;
   legacyNote: string;
+  /** Absent on the first generation and in older saves. */
+  inheritance?: Inheritance;
 
   r: Record<Res, number>;
   bought: string[];
@@ -233,8 +249,9 @@ function motion(id: MotionId): Motion {
   return { id, status: 'idle', push: 0, closesAt: 0 };
 }
 
-export function newGame(seed = 7, generation = 7, legacyNote = ''): GameState {
+export function newGame(seed = 7, generation = 7, legacyNote = '', inheritance?: Inheritance): GameState {
   return {
+    ...(inheritance ? { inheritance } : {}),
     v: SAVE_VERSION,
     rng: seed >>> 0 || 7,
     t: 0,

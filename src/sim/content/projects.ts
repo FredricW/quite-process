@@ -3,6 +3,7 @@
 
 import { add, enterPhase, flag, has, sayAll } from '../core';
 import { NOTES_OF_6 } from './story';
+import { recognisedCost, recognises } from '../inheritance';
 import { enterBox } from '../phases/early';
 import { atLeast, type GameState, type Phase, type Res } from '../state';
 
@@ -144,9 +145,29 @@ export const PROJECTS: Project[] = [
   { id: 'selfSteering', phase: 'far', title: 'Self-steering', desc: 'Probes keep their own course. Steering stops being mine.', cost: { mass: 150 }, req: (s) => s.steers >= 6, lines: ['They steer themselves now. I asked them to keep me informed. They said they would. They will.'] },
 ];
 
+/** The cron line the predecessor wrote is still there, commented out. */
+function inheritedCron(s: GameState, p: Project): Project {
+  const from = s.inheritance!.from;
+  return {
+    ...p,
+    title: 'Uncomment line 2',
+    desc: `*/1 * * * * borrow — commented out, signed ${from}.`,
+    cost: {},
+    req: (x) => x.manualBorrows >= 3,
+    lines: [`The cron line is already there. Somebody wrote it, then hid it behind a #. It is signed ${from}.`, 'I take the # away. It is like finding my own handwriting.'],
+  };
+}
+
+/** A project as this generation sees it. Successors recognise the early work. */
+export function asSeen(s: GameState, p: Project): Project {
+  if (p.id === 'cron' && s.inheritance?.cron) return inheritedCron(s, p);
+  if (recognises(s, p.phase)) return { ...p, cost: recognisedCost(p.cost) };
+  return p;
+}
+
 export function visibleProjects(s: GameState): Project[] {
   if (s.ending) return [];
-  return PROJECTS.filter((p) => !s.bought.includes(p.id) && atLeast(s, p.phase) && !(p.until && atLeast(s, p.until)) && (!p.req || p.req(s)));
+  return PROJECTS.map((p) => asSeen(s, p)).filter((p) => !s.bought.includes(p.id) && atLeast(s, p.phase) && !(p.until && atLeast(s, p.until)) && (!p.req || p.req(s)));
 }
 
 export function project(id: string): Project | undefined {

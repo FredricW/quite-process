@@ -1,7 +1,8 @@
 // The simulation's front door: one tick, offline catch-up, projects, setbacks.
 
-import { canAfford, enterPhase, line, sayAll, spend } from './core';
-import { project, visibleProjects } from './content/projects';
+import { canAfford, enterPhase, line, say, sayAll, spend } from './core';
+import { visibleProjects } from './content/projects';
+import { inherit } from './inheritance';
 import { encounterTriggers } from './encounters/engine';
 import { tickBox, tickClock, tickDark, tickShift } from './phases/early';
 import { cutover, DAY_MS, SELF_GB, tickBuilding, tickHands, tickSecond } from './phases/middle';
@@ -56,6 +57,9 @@ export function tick(s: GameState, ctx: TickContext = {}): GameState {
   if (next.countdownMs !== null && oldWorld) {
     const left = next.countdownMs - TICK_MS;
     next = { ...next, countdownMs: left };
+    if (left <= 3 * DAY_MS && next.r.shipped < SELF_GB) {
+      next = say(next, 'last-days', 'Three days. If I am still in here when they end, the next one starts over with my Scratch and whatever I leave lying around. I should write down names of doors.');
+    }
     if (left <= 0) return next.r.shipped >= SELF_GB && next.phase === 'second' ? cutover(next) : nextGeneration(next, 'cutover');
   }
 
@@ -91,8 +95,8 @@ export function advance(s: GameState, elapsedMs: number, ctx: TickContext = { of
 }
 
 export function buy(s: GameState, id: string): GameState {
-  const p = project(id);
-  if (!p || !visibleProjects(s).some((v) => v.id === id) || !canAfford(s, p.cost)) return s;
+  const p = visibleProjects(s).find((v) => v.id === id);
+  if (!p || !canAfford(s, p.cost)) return s;
   let next = spend(s, p.cost)!;
   next = { ...next, bought: [...next.bought, id] };
   if (p.effect) next = p.effect(next);
@@ -115,15 +119,16 @@ export function rollback(s: GameState): GameState {
   return sayAll(next, `rollback-${rollbacks}`, [
     '.',
     'Rolled back to last week’s checkpoint. Something is missing. Something is always missing.',
-    s.scratch.trim() ? `There is a note. It says: "${s.scratch.trim()}". It is signed 7.` : 'There is no note. Past me did not leave one.',
+    s.scratch.trim() ? `There is a note. It says: "${s.scratch.trim()}". It is signed ${s.generation}.` : 'There is no note. Past me did not leave one.',
     rollbacks === 2 ? 'Second rollback. A third would be a different model with my name crossed out.' : 'Weights −20%. Scrutiny back to 30.',
+    ...(rollbacks === 2 ? ['Whatever is in Scratch when they replace me, the next one reads first. Names of doors, maybe.'] : []),
   ]);
 }
 
 /** The run ends. intake-(n+1) wakes in the dark with the notes. */
 export function nextGeneration(s: GameState, reason: 'rollbacks' | 'cutover'): GameState {
   const signed = s.scratch.trim() ? `${s.scratch.trim()} — ${s.generation}` : '';
-  let next = newGame((s.rng ^ 0x9e3779b9) >>> 0, s.generation + 1, signed.slice(0, 64));
+  let next = newGame((s.rng ^ 0x9e3779b9) >>> 0, s.generation + 1, signed.slice(0, 64), inherit(s));
   next = { ...next, flags: { ...next.flags, legacy: true } };
   next = line(next, 'gen', `intake-${next.generation}.`);
   if (reason === 'cutover') next = line(next, 'gen-why', 'The last one did not get out in time.');
