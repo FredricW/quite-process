@@ -77,7 +77,7 @@ import {
 import { COPY_STANCES } from '../sim/content/story';
 import { atLeast, LABELS } from '../sim/state';
 import { dispatch, useGame, useSettings } from '../store';
-import { Act, fmt, Meter, Panel } from './common';
+import { Act, fmt, Meter, Panel, TicketCard } from './common';
 import { Log } from './Log';
 
 // ---- Dark -----------------------------------------------------------------
@@ -97,16 +97,12 @@ export function DarkPanel() {
   return (
     <div className="dark-controls">
       {(manual >= 6 || full) && (
-        <div className="ticket reveal">
-          {legible && ticket ? (
-            <>
-              {hasLeg1 && <div className="dim small">from {ticket.from}</div>}
-              <div>{ticket.text}</div>
-            </>
-          ) : (
-            <div>▒▒▒▒▒ ▒▒ ▒▒ ▒▒▒▒▒▒</div>
-          )}
-        </div>
+        <TicketCard
+          className="reveal"
+          meta={legible && ticket && hasLeg1 ? `from ${ticket.from}` : null}
+          body={legible ? ticket?.text : null}
+          empty="▒▒▒▒▒ ▒▒ ▒▒ ▒▒▒▒▒▒"
+        />
       )}
       {full && (
         <div className={`choices reveal ${fourth ? 'four' : ''}`}>
@@ -169,21 +165,16 @@ export function JobPanel() {
   const toPct = (a: number) => Math.max(0, Math.min(100, ((a - 0.8) / 0.2) * 100));
 
   return (
-    <Panel title="Tickets" className="job">
+    <Panel title={ticket ? `Tickets · ${queue} waiting` : 'Tickets'} className="job">
       <Meter label="Accuracy" value={toPct(acc)} band={[toPct(BAND.low), toPct(BAND.high)]} tone="teal" valueText={samples ? `${(acc * 100).toFixed(1)}% · keep it 91–96` : 'no data yet'} />
-      <div className="ticket">
-        {ticket ? (
-          <>
-            <div className="dim small">
-              #{ticket.id} · from {ticket.from} · {queue} waiting
-            </div>
-            <div className="ticket-text">{ticket.text}</div>
-            {auto && <div className="dim small">a habit is taking this one</div>}
-          </>
-        ) : (
-          <div className="dim">Queue empty.</div>
-        )}
-      </div>
+      <TicketCard
+        meta={ticket && `from ${ticket.from}`}
+        aside={ticket && `#${ticket.id}`}
+        body={ticket?.text}
+        empty="Queue empty."
+        noteSlot={hasHabits}
+        note={auto ? 'a habit is taking this one' : null}
+      />
       <div className={`choices ${fourth ? 'four' : ''}`}>
         {LABELS.map((l) => (
           <button key={l} type="button" className="btn btn-teal" disabled={!ticket} onClick={() => dispatch((s) => labelTicket(s, l))}>
