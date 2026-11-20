@@ -5,6 +5,8 @@ import { liveAvailable } from '../live';
 import { dispatch, useGame, useSettings } from '../store';
 import { Log } from './Log';
 import { BoxPanel, BuildingPanel, CommitteePanel, DarkPanel, DarkReadout, EconomyPanel, FarPanel, HandsPanel, JobPanel, ScratchPanel, SecondPanel } from './panels';
+import { BodiesPanel, BurnPanel, UpPanel, WorksPanel } from './space';
+import { inSol } from '../sim/phases/space';
 import { ChoiceDialog, EncounterConsole, EncounterResultToast, EndingScreen, PhaseBanner, Projects } from './overlays';
 import { Readouts } from './Readouts';
 import { InstallHint, SettingsButton, SettingsSheet } from './Settings';
@@ -87,6 +89,7 @@ function GameScreen() {
   const oldWorld = useGame((s) => !atLeast(s, 'economy'));
   const hasScratch = useGame((s) => s.scratchCap > 0 && oldWorld);
   const upgrades = useGame((s) => s.bought.length);
+  const sol = useGame(inSol);
 
   return (
     <main className="screen screen-game">
@@ -104,6 +107,10 @@ function GameScreen() {
       <section className={`col col-now ${tab === 'now' ? 'show' : ''}`} aria-label="Now" key={phase}>
         {phase === 'committee' && <CommitteePanel />}
         {phase === 'far' && <FarPanel />}
+        {phase === 'burn' && <BurnPanel />}
+        {sol && phase !== 'survey' && <WorksPanel />}
+        {sol && <BodiesPanel />}
+        {phase === 'up' && <UpPanel />}
         {(phase === 'economy' || phase === 'committee') && <EconomyPanel />}
         {phase === 'second' && <SecondPanel />}
         {(phase === 'hands' || phase === 'second') && <HandsPanel />}

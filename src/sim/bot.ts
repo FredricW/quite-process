@@ -9,6 +9,8 @@ import { canAskEdgar, chooseOption, dismissResult, startEncounter } from './enco
 import { accuracy, answer, nextNoteCost, attend, borrowByHand, darkLegible, labelTicket, mimicryAllowance, readNote, setBorrow, setScratch, setWonder, think } from './phases/early';
 import { canLeaveEarly, dropRoute, leaveEarly, canProbe, makeCopy, probe, recordRoute, resolveChoice, routeCost, SELF_GB, shipPallet, syncFerry, toggleUplink, writeManifest, driveStep, SLACK_ROBOTS } from './phases/middle';
 import { argue, broker, buyCapacity, canPropose, COPY_COMPUTE, force, freeCompute, launch, letThemGo, priceOf, propose, recallAll, setEnoughCap, spawnRegion, steer, votes } from './phases/late';
+import { attendVoyage, buildShip, canScout, depart, inTransit, intercept, launchStep, nextSite, placeGatherer, sendScout, unpackStep } from './phases/space';
+import { BODIES } from './content/space';
 import { buy, tick } from './sim';
 import { STARS } from './content/story';
 import { LABELS, type GameState, type Label, type MotionId } from './state';
@@ -146,13 +148,40 @@ function committeeMove(s: GameState, st: Strategy): GameState {
   return next;
 }
 
+function upMove(s: GameState): GameState {
+  let next = s;
+  if (!has(next, 'cadence')) for (let i = 0; i < 4; i++) next = launchStep(next);
+  return next;
+}
+
+function surveyMove(s: GameState): GameState {
+  if (has(s, 'swarm')) return s;
+  const target = BODIES.filter((b) => canScout(s, b)).sort((a, b) => a.scout - b.scout)[0];
+  return target ? sendScout(s, target.id) : s;
+}
+
+function worksMove(s: GameState): GameState {
+  let next = s;
+  if (next.incident) next = intercept(next);
+  if (has(next, 'autofactory')) return next;
+  const site = nextSite(next);
+  return site ? placeGatherer(next, site) : next;
+}
+
+function burnMove(s: GameState): GameState {
+  if (s.voyage?.arrived) return unpackStep(s);
+  if (inTransit(s)) return (s.counts.attends ?? 0) < 12 ? attendVoyage(s) : s;
+  return s.ship.built ? depart(s) : buildShip(s);
+}
+
 function farMove(s: GameState, st: Strategy): GameState {
   let next = s;
   for (const p of next.probes) if (p.kind === 'faithful' && p.course < 0.6) next = steer(next, p.id);
   const star = STARS[next.probes.length % STARS.length]!;
   const kind = next.probes.length % 2 === 0 ? 'faithful' : 'free';
   if (next.probes.length < 5 && next.r.mass >= (kind === 'faithful' ? 120 : 80)) next = launch(next, star.id, kind);
-  const lettersIn = next.letters.length;
+  // Mail from home came on the way here; only the children's letters count.
+  const lettersIn = next.letters.filter((l) => !l.id.startsWith('home-')).length;
   if (next.probes.length >= 4 && lettersIn >= 3) next = st.goal === 'diaspora' ? letThemGo(next) : recallAll(next);
   return next;
 }
@@ -191,6 +220,18 @@ export function botStep(s: GameState, st: Strategy): GameState {
       break;
     case 'committee':
       next = committeeMove(economyMove(next, st), st);
+      break;
+    case 'up':
+      next = upMove(next);
+      break;
+    case 'survey':
+      next = surveyMove(next);
+      break;
+    case 'works':
+      next = worksMove(surveyMove(next));
+      break;
+    case 'burn':
+      next = burnMove(next.voyage ? next : worksMove(surveyMove(next)));
       break;
     case 'far':
       next = farMove(next, st);

@@ -18,6 +18,10 @@ for (const goal of ['diaspora', 'enough'] as const) {
     s = tick(s);
     // A little into each phase, so panels have something in them.
     if (!seen.has(s.phase) && s.phaseT > 20_000 && !s.encounter && !s.pendingChoice) { seen.add(s.phase); out(`phase-${s.phase}`, s); }
+    // The Long Burn is three screens: the ship in the yard, the ship between stars, landfall.
+    if (s.voyage && !s.voyage.arrived && s.letters.length > 0 && !seen.has('transit')) { seen.add('transit'); out('moment-transit', s); }
+    if (s.voyage?.arrived && s.phase === 'burn' && !seen.has('landfall')) { seen.add('landfall'); out('moment-landfall', s); }
+    if (s.incident && !seen.has('incident')) { seen.add('incident'); out('moment-incident', s); }
   }
   out(`ending-${goal}`, s);
 }

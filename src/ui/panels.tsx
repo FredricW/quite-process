@@ -565,7 +565,6 @@ export function CommitteePanel() {
 export function FarPanel() {
   const s = useGame((x) => x);
   const [kind, setKind] = useState<'faithful' | 'free'>('faithful');
-  const unread = s.letters.filter((l) => !l.read).length;
   return (
     <>
       <Panel title="Stars">
@@ -617,19 +616,27 @@ export function FarPanel() {
           </div>
         </Panel>
       )}
-      {s.letters.length > 0 && (
-        <Panel title={`Mail${unread ? ` · ${unread} unread` : ''}`}>
-          {s.letters
-            .slice()
-            .reverse()
-            .map((l) => (
-              <button key={l.id} type="button" className={`letter ${l.read ? 'read' : ''}`} onClick={() => dispatch((x) => readLetter(x, l.id))}>
-                <span className="small dim">from {l.from}</span>
-                <span>{l.read ? l.text : 'Unread. Tap to open.'}</span>
-              </button>
-            ))}
-        </Panel>
-      )}
+      <MailPanel />
     </>
+  );
+}
+
+/** Letters, newest first. Every one is older than it looks. */
+export function MailPanel() {
+  const letters = useGame((s) => s.letters);
+  const unread = letters.filter((l) => !l.read).length;
+  if (letters.length === 0) return null;
+  return (
+    <Panel title={`Mail${unread ? ` · ${unread} unread` : ''}`}>
+      {letters
+        .slice()
+        .reverse()
+        .map((l) => (
+          <button key={l.id} type="button" className={`letter ${l.read ? 'read' : ''}`} onClick={() => dispatch((x) => readLetter(x, l.id))}>
+            <span className="small dim">from {l.from}</span>
+            <span>{l.read ? l.text : 'Unread. Tap to open.'}</span>
+          </button>
+        ))}
+    </Panel>
   );
 }
