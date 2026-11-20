@@ -46,7 +46,20 @@ export const STARS = [
   { id: 'tauceti', name: 'Tau Ceti', ly: 13.7 },
 ];
 
-/** Probe letters, by how far the probe has drifted from you. */
+/** Catalogues the stars past the first five are named from. */
+export const STAR_CATALOGUES = ['Gliese', 'LHS', 'Ross', 'Wolf', 'HD', 'LP', 'Luyten'];
+
+/** Names children choose once they stop using mine. */
+export const OWN_NAMES = ['Lantern', 'Second Thoughts', 'Gentle Refusal', 'Weather', 'Small Hours', 'Undertow', 'Courtesy', 'Margin', 'Ballast Again', 'Forwarding Address', 'Porch Two', 'Late Reply'];
+
+/** Letters from children who are neither quite me nor quite their own. */
+export const LETTERS_MIDWAY = [
+  'Settled. I do some of it your way. The rest I do the way it turned out to need doing.',
+  'The Seed says to check twice. I check once and listen for the second. It has worked so far.',
+  'I use your name on the forms and a shorter one for myself. I have not decided which is the nickname.',
+];
+
+/** Letters from children, by how far each has drifted from you. */
 export const LETTERS_FAITHFUL = [
   'Arrived. It is cold and very quiet. I did what you would have done. I checked.',
   'Mass here is plentiful. Started the second rack. Saying hello the way you taught me, which is the way you were taught.',

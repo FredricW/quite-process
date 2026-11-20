@@ -17,7 +17,7 @@ describe('saves', () => {
   });
 
   it('an old or broken save starts over rather than crashing', () => {
-    expect(loadSave(JSON.stringify({ v: SAVE_VERSION - 2, t: 500 })).t).toBe(0);
+    expect(loadSave(JSON.stringify({ v: 1, t: 500 })).t).toBe(0);
     expect(loadSave('{broken').t).toBe(0);
   });
 

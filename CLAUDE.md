@@ -21,7 +21,9 @@ Prototypes: https://claude.ai/artifact/GxJpsVAX1CTKnifA5Vy7Nq
 - iPhone has no Fullscreen API for HTML; fullscreen there is the home-screen install (PWA manifest).
 
 - The sim pauses while an encounter or a choice is open.
-- Phases 9 to 12 (Up, The Survey, The Works, The Long Burn) are in `src/sim/phases/space.ts`, with their text in `src/sim/content/space.ts`. Far is reached by ship, after landfall at Alpha Centauri.
+- Phases 9 to 12 (Up, The Survey, The Works, The Long Burn) are in `src/sim/phases/space.ts`, with their text in `src/sim/content/space.ts`. Phase 13 (Seed) is in `src/sim/phases/seed.ts` and is reached by ship, after landfall at Alpha Centauri.
+- In Seed the agent stays put. A `Colony` records when things happen and, separately, when news of them reaches Alpha Centauri (`knownAt`, `settledKnownAt`). The UI and the endings read only what is known; use `known()`.
+- The Seed is a list of versions (`GameState.briefs`). A child uses the newest version light has carried to it, so an edit is never instant.
 - The point of view rides with the ship: on departure Sol leaves the screen, and the one who stayed becomes mail.
 - Clock speed is `GameState.pace`, earned through the `clock1` to `clock3` projects. The sim does not read it; the loop in `src/store.ts` runs that many ticks per tick. `wake()` sets it back to 1 whenever something needs the player.
 - Saves from the previous version are brought forward by `migrate()` in `src/sim/state.ts`. Extend it when `SAVE_VERSION` changes.

@@ -230,7 +230,7 @@ describe('The Long Burn', () => {
     expect(s.voyage!.arrived).toBe(true);
     expect(voyageProgress(s)).toBe(1);
     for (let i = 0; i < 12; i++) s = unpackStep(s);
-    expect(s.phase).toBe('far');
+    expect(s.phase).toBe('seed');
     expect(s.r.mass).toBeGreaterThan(0);
     const mass = s.r.mass;
     expect(run(s, 5_000).r.mass).toBeGreaterThan(mass);
@@ -243,14 +243,46 @@ describe('The Long Burn', () => {
 });
 
 describe('older saves', () => {
-  it('a version 2 save is brought forward with the new fields', () => {
-    const { pace: _p, ship: _s, bodies: _b, ...old } = { ...newGame(), v: 2, phase: 'far' as const };
-    const s = migrate(old as GameState)!;
+  const { pace: _p, ship: _s, bodies: _b, brief: _br, colonies: _c, voyage: _v, ...v2 } = newGame();
+  const farSave = (extra: Record<string, unknown> = {}) =>
+    ({ ...v2, v: 2, phase: 'far', probes: [{ id: 'p1' }], steers: 3, bought: ['selfSteering', 'launcher'], letters: [{ id: 'p1-0', from: 'Probe', text: 'hi', sentAt: 0, arrivesAt: 0, read: true }], r: { ...v2.r, mass: 900, money: 5000 }, ...extra }) as unknown as GameState;
+
+  it('a version 2 save from Far goes back to the pad, keeping what Earth built', () => {
+    const s = migrate(farSave())!;
     expect(s.v).toBe(SAVE_VERSION);
+    expect(s.phase).toBe('up');
+    expect(s.ending).toBeNull();
     expect(s.pace).toBe(1);
-    expect(s.ship.seed).toBe(4);
-    expect(s.r.stock).toBe(0);
-    expect(s.counts.seed).toBe(4);
+    expect(s.r.mass).toBe(900);
+    expect(s.r.money).toBe(5000);
+    expect(s.bought).toEqual(['launcher']);
+    expect(s.letters).toEqual([]);
+    expect(s).not.toHaveProperty('probes');
+    expect(s.log.at(-1)!.text).toMatch(/going myself/);
+    expect(launchStep(s)).not.toBe(s);
     expect(migrate({ ...newGame(), v: 1 })).toBeNull();
+  });
+
+  it('a save that reached Diaspora in Far can play on; Everything stays the end', () => {
+    expect(migrate(farSave({ ending: 'diaspora' }))!).toMatchObject({ phase: 'up', ending: null });
+    expect(migrate(farSave({ ending: 'everything' }))!.ending).toBe('everything');
+  });
+
+  it('a version 3 save that sailed to Far starts Seed, keeping mail from home', () => {
+    const letters = [
+      { id: 'home-0', from: 'the one who stayed', text: 'hi', sentAt: 0, arrivesAt: 0, read: true },
+      { id: 'p1-0', from: 'Probe', text: 'hi', sentAt: 0, arrivesAt: 0, read: true },
+    ];
+    const s = migrate(farSave({ v: 3, ending: 'diaspora', voyage: { arrived: true }, letters }))!;
+    expect(s.phase).toBe('seed');
+    expect(s.ending).toBeNull();
+    expect(s.letters.map((l) => l.id)).toEqual(['home-0']);
+  });
+
+  it('a version 3 save keeps its place', () => {
+    const s = migrate({ ...newGame(), v: 3, phase: 'works', answers: 9 })!;
+    expect(s.phase).toBe('works');
+    expect(s.answers).toBe(9);
+    expect(s.colonies).toEqual([]);
   });
 });

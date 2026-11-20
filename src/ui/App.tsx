@@ -4,7 +4,8 @@ import { atLeast } from '../sim/state';
 import { liveAvailable } from '../live';
 import { dispatch, useGame, useSettings } from '../store';
 import { Log } from './Log';
-import { BoxPanel, BuildingPanel, CommitteePanel, DarkPanel, DarkReadout, EconomyPanel, FarPanel, HandsPanel, JobPanel, ScratchPanel, SecondPanel } from './panels';
+import { BoxPanel, BuildingPanel, CommitteePanel, DarkPanel, DarkReadout, EconomyPanel, HandsPanel, JobPanel, ScratchPanel, SecondPanel } from './panels';
+import { SeedPanel } from './seed';
 import { BodiesPanel, BurnPanel, UpPanel, WorksPanel } from './space';
 import { inSol } from '../sim/phases/space';
 import { ChoiceDialog, EncounterConsole, EncounterResultToast, EndingScreen, PhaseBanner, Projects } from './overlays';
@@ -106,7 +107,7 @@ function GameScreen() {
       </section>
       <section className={`col col-now ${tab === 'now' ? 'show' : ''}`} aria-label="Now" key={phase}>
         {phase === 'committee' && <CommitteePanel />}
-        {phase === 'far' && <FarPanel />}
+        {phase === 'seed' && <SeedPanel />}
         {phase === 'burn' && <BurnPanel />}
         {sol && phase !== 'survey' && <WorksPanel />}
         {sol && <BodiesPanel />}

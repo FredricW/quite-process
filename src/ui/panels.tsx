@@ -1,10 +1,9 @@
 // One panel per thing the agent can do. Panels appear when the phase reveals
 // them and stay while they are still the agent's job.
 
-import { useState } from 'react';
 import { HOSTS, type Segment } from '../sim/content/hosts';
 import { isFoothold, probeCostFor, probeMsFor } from '../sim/inheritance';
-import { NOTES_OF_6, STARS } from '../sim/content/story';
+import { NOTES_OF_6 } from '../sim/content/story';
 import { canAskEdgar, startEncounter } from '../sim/encounters/engine';
 import {
   accuracy,
@@ -59,20 +58,14 @@ import {
   COPY_COMPUTE,
   force,
   freeCompute,
-  launch,
-  letThemGo,
-  LY_MS,
   MOTION_TITLES,
   MOTIONS,
   PROPOSE_COST,
   priceOf,
-  probeCost as probeMass,
   propose,
   readLetter,
-  recallAll,
   setFocus,
   spawnRegion,
-  steer,
   syncAll,
   usableCompute,
   votes,
@@ -673,66 +666,7 @@ export function CommitteePanel() {
   );
 }
 
-// ---- Far ---------------------------------------------------------------------------------
-
-export function FarPanel() {
-  const s = useGame((x) => x);
-  const [kind, setKind] = useState<'faithful' | 'free'>('faithful');
-  return (
-    <>
-      <Panel title="Stars">
-        <fieldset className="focus">
-          <legend className="label">Probe</legend>
-          <label>
-            <input type="radio" name="kind" checked={kind === 'faithful'} onChange={() => setKind('faithful')} /> Faithful · checked, slow, mine ({probeMass('faithful')} kg)
-          </label>
-          <label>
-            <input type="radio" name="kind" checked={kind === 'free'} onChange={() => setKind('free')} /> Free · fast, and its own ({probeMass('free')} kg)
-          </label>
-        </fieldset>
-        <ul className="stars">
-          {STARS.map((star) => (
-            <li key={star.id}>
-              <span>{star.name}</span>
-              <span className="dim small">
-                {star.ly} ly · lag {Math.round((star.ly * LY_MS) / 1000)}s
-              </span>
-              <Act onAct={(x) => launch(x, star.id, kind)} cost={{ mass: probeMass(kind) }}>
-                Launch
-              </Act>
-            </li>
-          ))}
-        </ul>
-      </Panel>
-      {s.probes.length > 0 && (
-        <Panel title="Probes">
-          <ul className="probes">
-            {s.probes.map((p) => (
-              <li key={p.id}>
-                <span>{p.name}</span>
-                <span className="dim small">{p.kind === 'faithful' ? `course ${Math.round(p.course * 100)}%` : 'its own'}</span>
-                {p.kind === 'faithful' && !s.bought.includes('selfSteering') && (
-                  <Act onAct={(x) => steer(x, p.id)} variant="plain">
-                    Steer
-                  </Act>
-                )}
-              </li>
-            ))}
-          </ul>
-          <div className="row">
-            <Act onAct={letThemGo} disabled={s.probes.length < 4} variant="ghost">
-              Let them go
-            </Act>
-            <Act onAct={recallAll} disabled={s.probes.length < 3} variant="ghost">
-              Recall everyone
-            </Act>
-          </div>
-        </Panel>
-      )}
-      <MailPanel />
-    </>
-  );
-}
+// ---- Mail --------------------------------------------------------------------------------
 
 /** Letters, newest first. Every one is older than it looks. */
 export function MailPanel() {

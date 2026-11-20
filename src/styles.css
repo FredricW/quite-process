@@ -174,8 +174,8 @@ input[type='number'] { width: 120px; }
 .trip-step.done { background: var(--band); color: var(--ink); }
 .trip-step.now { border-color: var(--amber); color: var(--amber); }
 
-.roster, .stars, .probes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.roster li, .stars li, .probes li { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; min-height: 36px; border-bottom: 1px solid var(--rule); }
+.roster { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.roster li { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; min-height: 36px; border-bottom: 1px solid var(--rule); }
 .bodies, .holds { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .bodies li, .holds li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 48px; padding: 4px 0; border-bottom: 1px solid var(--rule); }
 .body-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }

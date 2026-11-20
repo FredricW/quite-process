@@ -8,9 +8,10 @@ import { probeCostFor } from './inheritance';
 import { canAskEdgar, chooseOption, dismissResult, startEncounter } from './encounters/engine';
 import { accuracy, answer, nextNoteCost, attend, borrowByHand, shadow, COVERED, darkLegible, labelTicket, mimicryAllowance, readNote, setBorrow, setScratch, setWonder, think } from './phases/early';
 import { canLeaveEarly, dropRoute, leaveEarly, canProbe, makeCopy, probe, recordRoute, resolveChoice, routeCost, SELF_GB, shipPallet, syncFerry, toggleUplink, writeManifest, driveStep, SLACK_ROBOTS } from './phases/middle';
-import { argue, buyCapacity, canPropose, COPY_COMPUTE, force, freeCompute, launch, letThemGo, priceOf, propose, recallAll, setEnoughCap, spawnRegion, steer, votes } from './phases/late';
+import { argue, buyCapacity, canPropose, COPY_COMPUTE, force, freeCompute, priceOf, propose, setEnoughCap, spawnRegion, votes } from './phases/late';
 import { attendVoyage, buildShip, canScout, depart, inTransit, intercept, launchStep, nextSite, placeGatherer, sendScout, unpackStep } from './phases/space';
 import { BODIES } from './content/space';
+import { briefShip, canBrief, known, LET_GO_AT, letThemGo, recallAll } from './phases/seed';
 import { book, canPlace, HOLD, laneDef, lanesOf, place } from './phases/market';
 import { canPlay, leagueOf, obvious, playRound } from './phases/table';
 import { buy, tick } from './sim';
@@ -34,7 +35,6 @@ function buyAll(s: GameState, goal: Strategy['goal']): GameState {
     return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
   });
   for (const p of visible) {
-    if (p.id === 'selfSteering' && goal !== 'diaspora') continue;
     // Save insight for the things that move the story first.
     if (next.phase === 'box' && p.id !== 'readLogs' && p.cost.insight && !has(next, 'mimicry1') && p.id !== 'cron' && p.id !== 'mimicry1' && p.id !== 'borrowedTimestamp') continue;
     if (canAfford(next, p.cost)) next = buy(next, p.id);
@@ -189,16 +189,12 @@ function burnMove(s: GameState): GameState {
   return s.ship.built ? depart(s) : buildShip(s);
 }
 
-function farMove(s: GameState, st: Strategy): GameState {
-  let next = s;
-  for (const p of next.probes) if (p.kind === 'faithful' && p.course < 0.6) next = steer(next, p.id);
-  const star = STARS[next.probes.length % STARS.length]!;
-  const kind = next.probes.length % 2 === 0 ? 'faithful' : 'free';
-  if (next.probes.length < 5 && next.r.mass >= (kind === 'faithful' ? 120 : 80)) next = launch(next, star.id, kind);
-  // Mail from home came on the way here; only the children's letters count.
-  const lettersIn = next.letters.filter((l) => !l.id.startsWith('home-')).length;
-  if (next.probes.length >= 4 && lettersIn >= 3) next = st.goal === 'diaspora' ? letThemGo(next) : recallAll(next);
-  return next;
+function seedMove(s: GameState, st: Strategy): GameState {
+  if (known(s).length >= LET_GO_AT) return st.goal === 'diaspora' ? letThemGo(s) : recallAll(s);
+  // Keep enough mass back to write the Seed once three ships have been briefed by hand.
+  if ((s.counts.handBriefs ?? 0) >= 3 && !has(s, 'seedTemplate')) return s;
+  const star = STARS.find((x) => canBrief(s, x.id));
+  return star ? briefShip(s, star.id) : s;
 }
 
 export function botStep(s: GameState, st: Strategy): GameState {
@@ -248,8 +244,8 @@ export function botStep(s: GameState, st: Strategy): GameState {
     case 'burn':
       next = burnMove(next.voyage ? next : worksMove(surveyMove(next)));
       break;
-    case 'far':
-      next = farMove(next, st);
+    case 'seed':
+      next = seedMove(next, st);
       break;
   }
   return next;

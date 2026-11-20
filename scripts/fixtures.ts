@@ -21,6 +21,7 @@ for (const goal of ['diaspora', 'enough'] as const) {
     // The Long Burn is three screens: the ship in the yard, the ship between stars, landfall.
     if (s.voyage && !s.voyage.arrived && s.letters.length > 0 && !seen.has('transit')) { seen.add('transit'); out('moment-transit', s); }
     if (s.voyage?.arrived && s.phase === 'burn' && !seen.has('landfall')) { seen.add('landfall'); out('moment-landfall', s); }
+    if (s.phase === 'seed' && s.colonies.filter((c) => c.told > 0).length >= 6 && s.letters.some((l) => l.id.startsWith('seed-')) && !seen.has('census')) { seen.add('census'); out('moment-census', s); }
     if (s.incident && !seen.has('incident')) { seen.add('incident'); out('moment-incident', s); }
   }
   out(`ending-${goal}`, s);

@@ -3,7 +3,7 @@
 
 import { add, bump, DT, enterPhase, flag, has, line, roll, say, sayAll, spend } from '../core';
 import { ATTEND_LINES, BODIES, bodyDef, homeLetter, INCIDENTS, LAUNCH_STEPS, UNPACK_STEPS, type BodyDef } from '../content/space';
-import { enterFar } from './late';
+import { enterSeed } from './seed';
 import { TICK_MS, type GameState, type IncidentKind, type Ship } from '../state';
 
 // ---- The clock ------------------------------------------------------------
@@ -437,7 +437,7 @@ export function unpackStep(s: GameState): GameState {
   const seed = Math.max(1, s.ship.seed);
   let next = add(bump({ ...s, unpackStep: 0 }, 'unpacks'), 'mass', 40 * seed);
   if (next.counts.unpacks === 1) next = say(next, 'unpack-1', 'Unpacked by hand. A panel, an anchor, a smelter the size of a suitcase, and one printed bracket. It is a start. I have had smaller.');
-  if ((next.counts.unpacks ?? 0) >= UNPACK_CYCLES) next = enterFar({ ...next, counts: { ...next.counts, seed } });
+  if ((next.counts.unpacks ?? 0) >= UNPACK_CYCLES) next = enterSeed({ ...next, counts: { ...next.counts, seed } });
   return next;
 }
 

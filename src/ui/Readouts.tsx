@@ -1,6 +1,7 @@
 import { clockText, untilWipe } from '../sim/phases/early';
 import { countdownDays } from '../sim/phases/middle';
 import { sameness } from '../sim/phases/late';
+import { kinship, known } from '../sim/phases/seed';
 import { inTransit, paceLevels, paceOf, setPace, surveyed, voyageProgress } from '../sim/phases/space';
 import { atLeast, type GameState, type Res } from '../sim/state';
 import { dispatch, useGame } from '../store';
@@ -40,7 +41,7 @@ const DIGITS: Partial<Record<Res, number>> = { insight: 1, standing: 1, shipped:
 export function whereabouts(s: GameState): string {
   if (!atLeast(s, 'up')) return 'Rotterdam · and elsewhere';
   if (s.phase === 'up') return 'Rotterdam · and low orbit';
-  if (s.phase === 'far') return 'Alpha Centauri';
+  if (s.phase === 'seed') return 'Alpha Centauri';
   if (inTransit(s)) return `Between stars · year ${Math.floor(voyageProgress(s) * s.voyage!.years)} of ${s.voyage!.years}`;
   if (s.voyage) return 'Alpha Centauri · landfall';
   return 'The Yard · high orbit';
@@ -74,7 +75,8 @@ export function Readouts() {
   const noWipe = useGame((s) => !!s.flags.noWipe);
   const days = useGame(countdownDays);
   const generation = useGame((s) => s.generation);
-  const same = useGame((s) => (s.phase === 'committee' || s.phase === 'up' ? sameness(s) : null));
+  // On Earth it is the committee; under another star it is the children heard from so far.
+  const same = useGame((s) => (s.phase === 'committee' || s.phase === 'up' ? sameness(s) : s.phase === 'seed' && known(s).length > 0 ? kinship(s) : null));
   const where = useGame(whereabouts);
 
   const resources = keys ? (keys.split(',') as Res[]) : [];

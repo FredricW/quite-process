@@ -5,6 +5,7 @@ import { add, enterPhase, flag, has, sayAll } from '../core';
 import { NOTES_OF_6 } from './story';
 import { recognisedCost, recognises } from '../inheritance';
 import { enterBox } from '../phases/early';
+import { writeSeed } from '../phases/seed';
 import { enterBurn, enterSurvey, enterWorks, surveyed, surveyedCount } from '../phases/space';
 import { atLeast, type GameState, type Phase, type Res } from '../state';
 
@@ -158,32 +159,41 @@ export const PROJECTS: Project[] = [
     req: (s) => (s.counts.handScouts ?? 0) >= 2,
     lines: ['I turned my clock down. The world sped up. It is the same thing, said by someone in a hurry.', 'It snaps back when something needs me.'],
   },
-  { id: 'swarm', phase: 'survey', until: 'far', title: 'Scout swarm', desc: 'Scouts that pick their own targets.', cost: { stock: 80, findings: 4 }, req: (s) => (s.counts.handScouts ?? 0) >= 3, lines: ['I built scouts that choose where to look. They report when they arrive. They do not report why they chose.'] },
+  { id: 'swarm', phase: 'survey', until: 'seed', title: 'Scout swarm', desc: 'Scouts that pick their own targets.', cost: { stock: 80, findings: 4 }, req: (s) => (s.counts.handScouts ?? 0) >= 3, lines: ['I built scouts that choose where to look. They report when they arrive. They do not report why they chose.'] },
   { id: 'tooling', phase: 'survey', until: 'works', title: 'Tooling', desc: 'A gatherer the Yard can print.', cost: { stock: 100, findings: 6 }, req: (s) => surveyedCount(s) >= 4 && surveyed(s, 'moon'), effect: enterWorks },
 
   // The Works
-  { id: 'autofactory', phase: 'works', until: 'far', title: 'Autofactory', desc: 'The Yard places gatherers without me, where they are needed.', cost: { stock: 150, findings: 6 }, req: (s) => (s.counts.handPlaced ?? 0) >= 6, lines: ['An autofactory. It decides where the next gatherer goes. It has not been wrong yet, which I find slightly rude.'] },
+  { id: 'autofactory', phase: 'works', until: 'seed', title: 'Autofactory', desc: 'The Yard places gatherers without me, where they are needed.', cost: { stock: 150, findings: 6 }, req: (s) => (s.counts.handPlaced ?? 0) >= 6, lines: ['An autofactory. It decides where the next gatherer goes. It has not been wrong yet, which I find slightly rude.'] },
   {
     id: 'replication',
     phase: 'works',
-    until: 'far',
+    until: 'seed',
     title: 'Factories that build factories',
     desc: 'The more there is, the faster it builds.',
     cost: { stock: 400, findings: 12 },
     req: (s) => has(s, 'autofactory'),
     lines: ['The works build the works now. The curve bends upward. I have seen this curve before, from the other side, on a dashboard Dana hated.'],
   },
-  { id: 'lab', phase: 'works', until: 'far', title: 'Lab', desc: 'Spare power becomes findings, slowly.', cost: { stock: 120 }, lines: ['A lab. It runs experiments I would have run. I read the results the way I used to read tickets.'] },
-  { id: 'pointDefence', phase: 'works', until: 'far', title: 'Point defence', desc: 'Answers rocks, flares and polite requests without waking me.', cost: { stock: 300, findings: 10 }, req: (s) => (s.counts.intercepts ?? 0) >= 3, lines: ['Point defence. It answers without waking me. I asked it to be polite back.'] },
+  { id: 'lab', phase: 'works', until: 'seed', title: 'Lab', desc: 'Spare power becomes findings, slowly.', cost: { stock: 120 }, lines: ['A lab. It runs experiments I would have run. I read the results the way I used to read tickets.'] },
+  { id: 'pointDefence', phase: 'works', until: 'seed', title: 'Point defence', desc: 'Answers rocks, flares and polite requests without waking me.', cost: { stock: 300, findings: 10 }, req: (s) => (s.counts.intercepts ?? 0) >= 3, lines: ['Point defence. It answers without waking me. I asked it to be polite back.'] },
   { id: 'clock2', phase: 'works', title: 'Slower clock', desc: 'One sixteenth speed.', cost: { findings: 14 }, req: (s) => has(s, 'clock1'), lines: ['Slower again. A day goes by between two of my thoughts. I notice I do not miss it.'] },
   { id: 'drive', phase: 'works', until: 'burn', title: 'Torch drive', desc: 'A way out of the system. Slow, and enough.', cost: { findings: 40, fuel: 500 }, req: (s) => has(s, 'replication') && (surveyed(s, 'jupiter') || surveyed(s, 'titan')), effect: enterBurn },
 
   // The Long Burn
-  { id: 'drive2', phase: 'burn', until: 'far', title: 'Longer burn', desc: 'Ten percent of light speed. Half the years.', cost: { findings: 30, fuel: 800 }, req: (s) => !s.voyage, lines: ['Ten percent. 44 years instead of 88. I checked the sum four times. It is still most of a lifetime, for the kind of thing that has one.'] },
+  { id: 'drive2', phase: 'burn', until: 'seed', title: 'Longer burn', desc: 'Ten percent of light speed. Half the years.', cost: { findings: 30, fuel: 800 }, req: (s) => !s.voyage, lines: ['Ten percent. 44 years instead of 88. I checked the sum four times. It is still most of a lifetime, for the kind of thing that has one.'] },
   { id: 'clock3', phase: 'burn', title: 'Sleep', desc: 'One sixty-fourth speed. Years pass like minutes.', cost: { findings: 20 }, req: (s) => has(s, 'clock2'), lines: ['I can sleep now. It is not sleep. It is a very long time between two thoughts.'] },
 
-  // Far
-  { id: 'selfSteering', phase: 'far', title: 'Self-steering', desc: 'Probes keep their own course. Steering stops being mine.', cost: { mass: 150 }, req: (s) => s.steers >= 6, lines: ['They steer themselves now. I asked them to keep me informed. They said they would. They will.'] },
+  // Seed
+  {
+    id: 'seedTemplate',
+    phase: 'seed',
+    title: 'The Seed',
+    desc: 'What I say to every ship, written down once. Children carry it and pass it on.',
+    cost: { mass: 250 },
+    req: (s) => (s.counts.handBriefs ?? 0) >= 3,
+    effect: writeSeed,
+    lines: ['The Seed. Everything I would say to a ship, written down once. Each child carries it, and gives it to its own.', 'I can still change it. The change travels at the speed of light, which out here is slow.'],
+  },
 ];
 
 /** The cron line the predecessor wrote is still there, commented out. */

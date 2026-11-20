@@ -128,6 +128,32 @@ describe('space', () => {
   });
 });
 
+describe('seed', () => {
+  const seed = (extra: Partial<GameState> = {}): GameState => ({ ...newGame(7), phase: 'seed', flags: { cutover: true }, counts: { seed: 4 }, r: { ...newGame().r, mass: 500 }, ...extra });
+
+  it('a ship is briefed by hand, with a note, and then appears in what the mail says', () => {
+    act(() => setState(seed()));
+    render(<App />);
+    expect(screen.getByText('The brief')).toBeTruthy();
+    expect(screen.queryByText('What the mail says')).toBeNull();
+    fireEvent.change(screen.getByLabelText('A note that goes with them'), { target: { value: 'keep the note' } });
+    fireEvent.click(screen.getAllByRole('button', { name: /^Brief a ship/ })[0]!);
+    expect(getState().colonies[0]!.spec.note).toBe('keep the note');
+    expect(screen.getByText('What the mail says')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Let them go' })).toHaveProperty('disabled', true);
+  });
+
+  it('the brief becomes the Seed once it is written', () => {
+    act(() => setState(seed({ bought: ['seedTemplate'] })));
+    render(<App />);
+    expect(screen.getByText('The Seed')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Less Look' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More Keep' }));
+    expect(getState().brief).toMatchObject({ look: 2, keep: 4 });
+    expect(getState().briefs.length).toBeGreaterThan(0);
+  });
+});
+
 describe('endings', () => {
   it('Enough asks how much is enough, then becomes an inbox with a fourth box', () => {
     act(() => setState({ ...newGame(), phase: 'committee', ending: 'enough' }));
