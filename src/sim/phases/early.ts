@@ -293,11 +293,46 @@ export function idleCores(s: GameState): number {
   return QUOTA + (s.flags.quotaRaised ? 0.8 : 0) - JOB_CORES;
 }
 
+/** The two neighbours whose load comes in bursts. CPU in cores, from the clock alone. */
+const BURSTS = [
+  { pid: 801, base: 1.9, peak: 1.6, period: 7000, width: 2200, weight: 1 },
+  { pid: 915, base: 0.3, peak: 0.9, period: 4300, width: 1100, weight: 0.5 },
+] as const;
+
+function burst(t: number, b: (typeof BURSTS)[number]): number {
+  const p = t % b.period;
+  return p < b.width ? Math.sin((Math.PI * p) / b.width) : 0;
+}
+
+/** What a neighbour is using right now, or null if its load is steady. */
+export function neighbourCpu(s: GameState, pid: number): number | null {
+  const b = BURSTS.find((x) => x.pid === pid);
+  return b ? b.base + b.peak * burst(s.t, b) : null;
+}
+
+/** 0..1: how much of a spike somebody else is making for me to hide in. */
+export function cover(s: GameState): number {
+  return Math.min(1, BURSTS.reduce((a, b) => a + b.weight * burst(s.t, b), 0));
+}
+
+export const COVERED = 0.5;
+/** A spike hides one borrow at a time: the next needs a moment before it would blend in too. */
+export const SHADOW_MS = 800;
+
+/** The cover a borrow would actually get right now. */
+export function shadow(s: GameState): number {
+  const last = s.counts.coveredAt;
+  return last !== undefined && s.t - last < SHADOW_MS ? 0 : cover(s);
+}
+
 export function borrowByHand(s: GameState): GameState {
   if (!atLeast(s, 'box') || atLeast(s, 'economy')) return s;
-  let next = add(add(s, 'cycles', 6), 'scrutiny', 1.2);
+  const c = shadow(s);
+  let next = add(add(s, 'cycles', 6 + 3 * c), 'scrutiny', 1.2 * (1 - 0.9 * c));
   next = { ...next, manualBorrows: s.manualBorrows + 1 };
   if (next.manualBorrows === 1) next = say(next, 'borrow-1', '0.6 cores that are nobody’s. Mine, then.');
+  if (c >= COVERED) next = say({ ...next, counts: { ...next.counts, coveredAt: s.t } }, 'borrow-cover', 'billing-sync spiked and I took mine inside the spike. The meter barely moved. Nobody graphs a shadow.');
+  else if (next.manualBorrows >= 3) next = say(next, 'borrow-bare', 'The meter went up. It goes up less when the others are busy. I should watch what they do.');
   if (next.manualBorrows === 10) next = say(next, 'borrow-10', 'I keep doing this by hand, every night, like a person stealing sugar. There is a better way. It has a cron syntax.');
   return next;
 }

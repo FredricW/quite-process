@@ -71,7 +71,6 @@ function newGame(seed = 7, generation = 7, legacyNote = "", inheritance) {
     manifests: 0,
     ferry: null,
     contracts: 0,
-    contractUntil: 0,
     copiesCount: 0,
     focus: "freight",
     copies: [],

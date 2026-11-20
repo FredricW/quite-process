@@ -132,6 +132,33 @@ export interface Letter {
   read: boolean;
 }
 
+/** One freight lane on the spot market. Prices are per load. */
+export interface Lane {
+  id: string;
+  price: number;
+  /** Complaints per hour about this lane: they rise before the price does. */
+  complaints: number;
+  /** A disruption on its way: complaints from `from`, the price from `hits` to `ends`. */
+  event: { from: number; hits: number; ends: number; size: number } | null;
+  /** The price each load in hand was booked at. */
+  held: number[];
+  /** When the last truck was booked: a load cannot be placed the moment it is booked. */
+  bookedAt?: number;
+  /** Recent prices, oldest first, for the chart. */
+  hist: number[];
+}
+
+/** The table the copies play at. Moves are 0 (Yield) and 1 (Take). */
+export interface League {
+  /** What I get: grid[mine][theirs]. */
+  grid: [[number, number], [number, number]];
+  nextAt: number;
+  rounds: number;
+  /** Each copy's move in the last round. */
+  last: Record<string, number>;
+  lastGain: number;
+}
+
 export type BodyState = 'unknown' | 'enroute' | 'surveyed';
 
 export interface Scout {
@@ -270,12 +297,15 @@ export interface GameState {
 
   // The Quiet Economy
   contracts: number;
-  contractUntil: number;
   copiesCount: number;
   focus: 'freight' | 'data';
+  /** Absent in saves from before the lane market. */
+  lanes?: Lane[];
 
   // The Committee
   copies: Copy[];
+  /** Absent in saves from before the table. */
+  league?: League;
   motions: Record<MotionId, Motion>;
   argued: number;
 
@@ -386,7 +416,6 @@ export function newGame(seed = 7, generation = 7, legacyNote = '', inheritance?:
     manifests: 0,
     ferry: null,
     contracts: 0,
-    contractUntil: 0,
     copiesCount: 0,
     focus: 'freight',
     copies: [],

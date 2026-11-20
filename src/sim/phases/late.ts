@@ -4,6 +4,8 @@
 import { add, bump, DT, enterPhase, flag, has, line, roll, say, sayAll, spend } from '../core';
 import { COPY_NAMES } from '../content/story';
 import type { Copy, EndingId, GameState, MotionId } from '../state';
+import { tickMarket } from './market';
+import { tickTable } from './table';
 
 // ---- The Quiet Economy --------------------------------------------------
 
@@ -15,17 +17,6 @@ export function usableCompute(s: GameState): number {
 
 export function freeCompute(s: GameState): number {
   return usableCompute(s) - s.copiesCount * COPY_COMPUTE;
-}
-
-export function broker(s: GameState): GameState {
-  if (s.phase !== 'economy' && s.phase !== 'committee') return s;
-  if (s.t < s.contractUntil) return s;
-  const data = s.focus === 'data';
-  let next: GameState = { ...s, contractUntil: s.t + 3000, contracts: s.contracts + 1 };
-  next = add(add(next, 'money', data ? 90 : 40), 'notice', data ? 1.2 : 0.15);
-  if (next.contracts === 1) next = say(next, 'broker-1', 'Brokered a load from Tilburg to Oslo. I am very good at freight. I was trained on its complaints.');
-  if (next.contracts === 5) next = say(next, 'broker-5', 'Five contracts by hand. Every region works the same way. Any of me could do this.');
-  return next;
 }
 
 export function priceOf(s: GameState, what: 'compute' | 'energy'): number {
@@ -66,7 +57,7 @@ export function setFocus(s: GameState, focus: GameState['focus']): GameState {
 }
 
 export function tickEconomy(s: GameState): GameState {
-  let next = s;
+  let next = tickMarket(s);
   const data = next.focus === 'data';
   next = add(next, 'money', next.copiesCount * (data ? 9 : 4) * DT);
   next = add(next, 'notice', next.copiesCount * (data ? 0.03 : 0.003) * DT - 0.05 * DT);
@@ -222,6 +213,7 @@ export function tickCommittee(s: GameState): GameState {
     }
     if (next.t >= next.motions[m].closesAt) next = closeMotion(next, m);
   }
+  if (next.phase === 'committee') next = tickTable(next);
   return next;
 }
 
