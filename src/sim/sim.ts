@@ -7,6 +7,7 @@ import { encounterTriggers } from './encounters/engine';
 import { tickBox, tickClock, tickDark, tickShift } from './phases/early';
 import { cutover, DAY_MS, SELF_GB, tickBuilding, tickHands, tickSecond } from './phases/middle';
 import { tickCommittee, tickEconomy, tickFar } from './phases/late';
+import { tickSpace } from './phases/space';
 import { atLeast, type GameState, newGame, TICK_MS } from './state';
 import { DT } from './core';
 
@@ -32,10 +33,15 @@ export function tick(s: GameState, ctx: TickContext = {}): GameState {
     if (atLeast(next, 'building')) next = tickBuilding(next);
     if (atLeast(next, 'hands')) next = tickHands(next);
     if (atLeast(next, 'second')) next = tickSecond(next);
-  } else {
+  } else if (!atLeast(next, 'survey')) {
+    // Through Up the agent is still on Earth, and the ledger is still its own.
     next = tickEconomy(next);
     if (atLeast(next, 'committee')) next = tickCommittee(next);
-    if (atLeast(next, 'far')) next = tickFar(next);
+    if (next.phase === 'up') next = tickSpace(next, !!ctx.offline);
+  } else if (next.phase === 'far') {
+    next = tickFar(next);
+  } else {
+    next = tickSpace(next, !!ctx.offline);
   }
 
   if (ctx.offline) {

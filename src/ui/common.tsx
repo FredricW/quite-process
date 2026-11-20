@@ -21,6 +21,9 @@ export const RES_LABELS: Record<Res, string> = {
   notice: 'Notice',
   favours: 'Favours',
   mass: 'Mass',
+  stock: 'Stock',
+  fuel: 'Fuel',
+  findings: 'Findings',
 };
 
 export const RES_SHORT: Partial<Record<Res, string>> = { reward: 'R', weights: 'W', insight: 'I', cycles: 'C', money: '€', favours: 'F', mass: 'kg' };

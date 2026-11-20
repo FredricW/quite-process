@@ -21,6 +21,10 @@ Prototypes: https://claude.ai/artifact/GxJpsVAX1CTKnifA5Vy7Nq
 - iPhone has no Fullscreen API for HTML; fullscreen there is the home-screen install (PWA manifest).
 
 - The sim pauses while an encounter or a choice is open.
+- Phases 9 to 12 (Up, The Survey, The Works, The Long Burn) are in `src/sim/phases/space.ts`, with their text in `src/sim/content/space.ts`. Far is reached by ship, after landfall at Alpha Centauri.
+- The point of view rides with the ship: on departure Sol leaves the screen, and the one who stayed becomes mail.
+- Clock speed is `GameState.pace`, earned through the `clock1` to `clock3` projects. The sim does not read it; the loop in `src/store.ts` runs that many ticks per tick. `wake()` sets it back to 1 whenever something needs the player.
+- Saves from the previous version are brought forward by `migrate()` in `src/sim/state.ts`. Extend it when `SAVE_VERSION` changes.
 - `useGame` caches selector results per state; selectors may return new arrays safely.
 - The live-character function is `server/encounter.ts`, bundled to `api/encounter.js` by `npm run build:api` (Vercel would otherwise fail on extensionless ESM imports into `src/`). Rebuild it after changing anything it imports.
 - The model never sees raw numbers or decides outcomes. Prompts are rebuilt server-side from allow-listed facts.
@@ -30,3 +34,4 @@ Prototypes: https://claude.ai/artifact/GxJpsVAX1CTKnifA5Vy7Nq
 - `npm run dev`, `npm test`, `npm run build`, `npm run test:e2e`
 - `npm run play -- <enough|everything|diaspora> <seed>` runs the bot through a whole game; use it to check pacing after balance changes.
 - `npm run fixtures` regenerates the per-phase saves the browser tests load.
+- On macOS the browser tests need `CHROME_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"`.

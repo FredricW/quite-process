@@ -2,7 +2,8 @@
 // so only the parts that changed re-render.
 
 import { useRef, useSyncExternalStore } from 'react';
-import { newGame, SAVE_VERSION, TICK_MS, type EndingId, type GameState } from './sim/state';
+import { migrate, newGame, TICK_MS, type EndingId, type GameState } from './sim/state';
+import { paceOf } from './sim/phases/space';
 import { advance, tick } from './sim/sim';
 
 const SAVE_KEY = 'qp.save';
@@ -44,10 +45,12 @@ export function loadSave(raw: string | null, now = Date.now()): GameState {
   if (!raw) return newGame(seed());
   try {
     const saved = JSON.parse(raw) as GameState & { savedAt?: number };
-    if (saved.v !== SAVE_VERSION) return newGame(seed());
     const away = saved.savedAt ? Math.max(0, now - saved.savedAt) : 0;
-    const { savedAt: _, ...state } = saved;
-    return advance(state as GameState, away);
+    const { savedAt: _, ...rest } = saved;
+    const state = migrate(rest as GameState);
+    if (!state) return newGame(seed());
+    // A slowed clock keeps running while the player is away.
+    return advance(state, away * paceOf(state));
   } catch {
     return newGame(seed());
   }
@@ -148,8 +151,8 @@ export function exportSave(): string {
 
 export function importSave(code: string): boolean {
   try {
-    const parsed = JSON.parse(decodeURIComponent(escape(atob(code.trim())))) as GameState;
-    if (parsed.v !== SAVE_VERSION || typeof parsed.t !== 'number') return false;
+    const parsed = migrate(JSON.parse(decodeURIComponent(escape(atob(code.trim())))) as GameState);
+    if (!parsed || typeof parsed.t !== 'number') return false;
     state = parsed;
     save();
     emit();
@@ -175,7 +178,7 @@ export function startLoop() {
 
   const step = () => {
     const now = performance.now();
-    acc += (now - last) * speed;
+    acc += (now - last) * speed * paceOf(state);
     last = now;
     if (acc < TICK_MS) return;
     const n = Math.floor(acc / TICK_MS);

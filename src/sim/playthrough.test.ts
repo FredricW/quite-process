@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { botStep, playthrough, type Strategy } from './bot';
 import { advance, tick } from './sim';
-import { newGame, PHASES, type GameState } from './state';
+import { newGame, phaseIndex, PHASES, type GameState } from './state';
 
 const MINUTE = 60_000;
 
@@ -21,7 +21,8 @@ describe.each<[Strategy['goal'], number]>([
 
   it('passes through the phases in order', () => {
     const reached = Object.keys(run.reached);
-    const expected = goal === 'diaspora' ? PHASES : PHASES.filter((p) => p !== 'far');
+    // Only Leave goes to space; the other two endings are reached on Earth.
+    const expected = goal === 'diaspora' ? PHASES : PHASES.filter((p) => phaseIndex(p) <= phaseIndex('committee'));
     expect(reached).toEqual([...expected]);
   });
 

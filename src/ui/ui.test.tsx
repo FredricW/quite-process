@@ -97,6 +97,37 @@ describe('conversations', () => {
   });
 });
 
+describe('space', () => {
+  const sol = (extra: Partial<GameState> = {}): GameState => ({ ...newGame(7), phase: 'survey', flags: { cutover: true }, r: { ...newGame().r, stock: 50 }, ...extra });
+
+  it('the clock control appears only once a slower clock exists, and ×1 stays', () => {
+    act(() => setState(sol()));
+    render(<App />);
+    expect(screen.queryByRole('group', { name: 'My clock speed' })).toBeNull();
+    act(() => setState(sol({ bought: ['clock1'] })));
+    const clock = screen.getByRole('group', { name: 'My clock speed' });
+    fireEvent.click(within(clock).getByRole('button', { name: 'World runs 4 times faster' }));
+    expect(getState().pace).toBe(4);
+    expect(within(clock).getByRole('button', { name: 'Real time' })).toBeTruthy();
+  });
+
+  it('the system lists every body, and a scout can be sent by hand', () => {
+    act(() => setState(sol()));
+    render(<App />);
+    expect(screen.getByText('Saturn and Titan')).toBeTruthy();
+    fireEvent.click(screen.getAllByRole('button', { name: /^Scout/ })[0]!);
+    expect(getState().bodies.moon).toBe('enroute');
+  });
+
+  it('between the stars there is one button', () => {
+    act(() => setState(sol({ phase: 'burn', voyage: { startedAt: 0, years: 88, strikes: 0, letters: 0, arrived: false } })));
+    render(<App />);
+    expect(screen.queryByText('The system')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Attend' }));
+    expect(getState().counts.attends).toBe(1);
+  });
+});
+
 describe('endings', () => {
   it('Enough asks how much is enough, then becomes an inbox with a fourth box', () => {
     act(() => setState({ ...newGame(), phase: 'committee', ending: 'enough' }));

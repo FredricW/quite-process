@@ -176,6 +176,20 @@ input[type='number'] { width: 120px; }
 
 .roster, .stars, .probes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .roster li, .stars li, .probes li { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; min-height: 36px; border-bottom: 1px solid var(--rule); }
+.bodies, .holds { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.bodies li, .holds li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 48px; padding: 4px 0; border-bottom: 1px solid var(--rule); }
+.body-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.body-surveyed { border-color: var(--band); }
+.stepper { display: inline-flex; align-items: center; gap: 8px; }
+.stepper .btn { min-width: 44px; min-height: 44px; justify-content: center; }
+.stepper-value { min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums; }
+.incident { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--amber); padding: 10px 12px; }
+.clock-ctl { display: inline-flex; align-items: center; gap: 8px; }
+.clock-btns { display: inline-flex; border: 1px solid var(--rule); }
+.clock-btn { min-width: 44px; height: 40px; border: 0; background: transparent; color: var(--ink); font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; }
+.clock-btn + .clock-btn { border-left: 1px solid var(--rule); }
+.clock-btn.active { background: var(--ink); color: var(--ground); font-weight: 600; }
+.clock-btn:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .motion { display: flex; flex-direction: column; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid var(--rule); }
 .motion-head { display: flex; justify-content: space-between; }
 .focus { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }

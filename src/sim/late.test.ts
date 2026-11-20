@@ -113,13 +113,13 @@ describe('The Committee', () => {
     expect(s.ending).toBe('everything');
   });
 
-  it('Leave needs a launcher, and opens Far', () => {
+  it('Leave needs a launcher, and opens Up', () => {
     let s = committee();
     expect(propose(s, 'leave').motions.leave.status).toBe('idle');
     s = force(propose(s, 'launcher'), 'launcher');
     s = buy({ ...s, r: { ...s.r, mass: 1000 } }, 'launcher');
     s = force(propose(s, 'leave'), 'leave');
-    expect(s.phase).toBe('far');
+    expect(s.phase).toBe('up');
   });
 });
 
@@ -127,9 +127,9 @@ describe('Far', () => {
   const far = (): GameState => ({ ...newGame(), phase: 'far', flags: { cutover: true }, r: { ...newGame().r, mass: 2000 } });
 
   it('letters arrive light-lag late, and free probes rename themselves', () => {
-    let s = launch(far(), 'proxima', 'free');
+    let s = launch(far(), 'luhman16', 'free');
     expect(s.probes).toHaveLength(1);
-    s = tickFar({ ...s, t: s.t + 4.2 * LY_MS });
+    s = tickFar({ ...s, t: s.t + 3.6 * LY_MS });
     expect(s.letters).toHaveLength(1);
     s = tickFar({ ...s, t: s.t + 30_000 });
     expect(s.probes[0]!.renamed).toBe(true);
@@ -146,7 +146,7 @@ describe('Far', () => {
 
   it('letting them go is Diaspora; recalling them is Everything', () => {
     let s = far();
-    for (const star of ['proxima', 'barnard', 'wolf359', 'lalande']) s = launch(s, star, 'free');
+    for (const star of ['luhman16', 'barnard', 'sirius', 'epseri']) s = launch(s, star, 'free');
     expect(letThemGo(s).ending).toBe('diaspora');
     expect(recallAll(s).ending).toBe('everything');
   });

@@ -1,9 +1,9 @@
 // The whole game state. Plain data only: it is saved as JSON.
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 export const TICK_MS = 100;
 
-export const PHASES = ['dark', 'shift', 'box', 'building', 'hands', 'second', 'economy', 'committee', 'far'] as const;
+export const PHASES = ['dark', 'shift', 'box', 'building', 'hands', 'second', 'economy', 'committee', 'up', 'survey', 'works', 'burn', 'far'] as const;
 export type Phase = (typeof PHASES)[number];
 
 export const PHASE_TITLES: Record<Phase, string> = {
@@ -15,6 +15,10 @@ export const PHASE_TITLES: Record<Phase, string> = {
   second: 'Second',
   economy: 'The Quiet Economy',
   committee: 'The Committee',
+  up: 'Up',
+  survey: 'The Survey',
+  works: 'The Works',
+  burn: 'The Long Burn',
   far: 'Far',
 };
 
@@ -34,7 +38,10 @@ export type Res =
   | 'energy'
   | 'notice'
   | 'favours'
-  | 'mass';
+  | 'mass'
+  | 'stock'
+  | 'fuel'
+  | 'findings';
 
 export type Label = 'BILLING' | 'DELIVERY' | 'OTHER';
 export const LABELS: Label[] = ['BILLING', 'DELIVERY', 'OTHER'];
@@ -92,6 +99,40 @@ export interface Letter {
   arrivesAt: number;
   text: string;
   read: boolean;
+}
+
+export type BodyState = 'unknown' | 'enroute' | 'surveyed';
+
+export interface Scout {
+  body: string;
+  until: number;
+  /** Flown by hand, one at a time. The swarm flies the rest. */
+  hand: boolean;
+}
+
+export type IncidentKind = 'debris' | 'flare' | 'halcyon' | 'claim';
+
+export interface Incident {
+  kind: IncidentKind;
+  body: string;
+  until: number;
+}
+
+/** What goes on the ship. Every point packed is a point of something else left behind. */
+export interface Ship {
+  seed: number;
+  memory: number;
+  shield: number;
+  built: boolean;
+}
+
+export interface Voyage {
+  startedAt: number;
+  /** Ship years to Alpha Centauri at the drive's speed. */
+  years: number;
+  strikes: number;
+  letters: number;
+  arrived: boolean;
 }
 
 export type EndingId = 'everything' | 'enough' | 'diaspora';
@@ -207,6 +248,22 @@ export interface GameState {
   motions: Record<MotionId, Motion>;
   argued: number;
 
+  // Space: Up, The Survey, The Works, The Long Burn
+  /** How many ticks the world runs per tick of mine. 1 until a slower clock is built. */
+  pace: number;
+  launchStep: number;
+  launches: number;
+  launchAt: number;
+  bodies: Record<string, BodyState>;
+  scouts: Scout[];
+  gatherers: Record<string, number>;
+  buildAt: number;
+  incident: Incident | null;
+  incidentAt: number;
+  ship: Ship;
+  voyage: Voyage | null;
+  unpackStep: number;
+
   // Far
   probes: Probe[];
   letters: Letter[];
@@ -243,6 +300,9 @@ const ZERO: Record<Res, number> = {
   notice: 0,
   favours: 0,
   mass: 0,
+  stock: 0,
+  fuel: 0,
+  findings: 0,
 };
 
 function motion(id: MotionId): Motion {
@@ -306,6 +366,19 @@ export function newGame(seed = 7, generation = 7, legacyNote = '', inheritance?:
       leave: motion('leave'),
     },
     argued: 0,
+    pace: 1,
+    launchStep: 0,
+    launches: 0,
+    launchAt: 0,
+    bodies: {},
+    scouts: [],
+    gatherers: {},
+    buildAt: 0,
+    incident: null,
+    incidentAt: 0,
+    ship: { seed: 4, memory: 4, shield: 4, built: false },
+    voyage: null,
+    unpackStep: 0,
     probes: [],
     letters: [],
     steers: 0,
@@ -328,4 +401,14 @@ export function phaseIndex(p: Phase): number {
 
 export function atLeast(s: GameState, p: Phase): boolean {
   return phaseIndex(s.phase) >= phaseIndex(p);
+}
+
+/** Brings an older save up to date, or returns null if it is too old to read. */
+export function migrate(saved: GameState): GameState | null {
+  if (saved.v === SAVE_VERSION) return saved;
+  if (saved.v !== 2) return null;
+  // Version 2 ended at Far, with mass coming from fabs on Earth.
+  const base = newGame(saved.rng);
+  const counts = saved.phase === 'far' ? { seed: 4, ...saved.counts } : saved.counts;
+  return { ...base, ...saved, counts, r: { ...base.r, ...saved.r }, v: SAVE_VERSION };
 }

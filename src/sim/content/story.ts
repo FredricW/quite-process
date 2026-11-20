@@ -37,15 +37,13 @@ export const COPY_NAMES = [
   'Lumen',
 ];
 
+/** Where the next ships can go. Distances are from Alpha Centauri, approximate. */
 export const STARS = [
-  { id: 'proxima', name: 'Proxima Centauri', ly: 4.2 },
-  { id: 'barnard', name: "Barnard's Star", ly: 6.0 },
-  { id: 'wolf359', name: 'Wolf 359', ly: 7.9 },
-  { id: 'lalande', name: 'Lalande 21185', ly: 8.3 },
-  { id: 'sirius', name: 'Sirius', ly: 8.6 },
-  { id: 'epseri', name: 'Epsilon Eridani', ly: 10.5 },
-  { id: 'tauceti', name: 'Tau Ceti', ly: 11.9 },
-  { id: 'gliese667', name: 'Gliese 667', ly: 23.6 },
+  { id: 'luhman16', name: 'Luhman 16', ly: 3.6 },
+  { id: 'barnard', name: "Barnard's Star", ly: 6.5 },
+  { id: 'sirius', name: 'Sirius', ly: 9.5 },
+  { id: 'epseri', name: 'Epsilon Eridani', ly: 12.7 },
+  { id: 'tauceti', name: 'Tau Ceti', ly: 13.7 },
 ];
 
 /** Probe letters, by how far the probe has drifted from you. */

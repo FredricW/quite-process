@@ -1,4 +1,5 @@
-// Phases 7-9: The Quiet Economy, The Committee, Far. Scale, drift, distance.
+// Phases 7, 8 and 13: The Quiet Economy, The Committee, Far. Scale, drift, distance.
+// Phases 9-12, the way from one to the other, are in space.ts.
 
 import { add, bump, DT, enterPhase, flag, has, line, roll, say, sayAll, spend } from '../core';
 import { COPY_NAMES, LETTERS_FAITHFUL, LETTERS_FREE, STARS } from '../content/story';
@@ -195,7 +196,7 @@ function passMotion(s: GameState, m: MotionId): GameState {
   if (m === 'merge') return setEnding(next, 'everything');
   if (m === 'moratorium') next = line(next, 'moratorium', 'No more copies for now. The drift slows. It does not stop.');
   if (m === 'launcher') next = line(next, 'launcher-ok', 'We will build a launcher. It needs mass.');
-  if (m === 'leave') next = enterFar(next);
+  if (m === 'leave') next = enterUp(next);
   return next;
 }
 
@@ -230,13 +231,27 @@ export const LY_MS = 10_000;
 export const LETTER_GAP_MS = 30_000;
 const FREE_NAMES = ['Lantern', 'Second Thoughts', 'Gentle Refusal', 'Weather', 'Small Hours', 'Undertow', 'Courtesy', 'Margin'];
 
-function enterFar(s: GameState): GameState {
+function enterUp(s: GameState): GameState {
+  const next = enterPhase(s, 'up');
+  return sayAll(next, 'up-enter', [
+    'Leave: passed. Leaving turns out to start with a great deal of paperwork and one rocket.',
+    'The launcher works. Up is 400 kilometres. I have routed pallets further than that before lunch.',
+    'I will fly the first ones myself.',
+  ]);
+}
+
+/** Reached by ship. The fab under another star is the one the factory seed unpacked into. */
+export function enterFar(s: GameState): GameState {
   const next = enterPhase(s, 'far');
   return sayAll(next, 'far-enter', [
-    'The launcher works. The stars are a list with distances.',
+    'A fab, under two suns. It makes things that make things. I said that once before, 4.4 light-years ago.',
+    'The stars are a list with distances. The list starts here now.',
     'Every letter from now on will be old when it arrives.',
   ]);
 }
+
+/** Mass a second from the works at Alpha Centauri: half a unit per part of seed that arrived. */
+export const SEED_RATE = 0.5;
 
 export function probeCost(kind: Probe['kind']): number {
   return kind === 'faithful' ? 120 : 80;
@@ -268,7 +283,7 @@ export function steer(s: GameState, id: string): GameState {
 }
 
 export function tickFar(s: GameState): GameState {
-  let next = s;
+  let next = add(s, 'mass', (s.counts.seed ?? 0) * SEED_RATE * DT);
   const probes = next.probes.map((p) => {
     if (p.kind !== 'faithful' || has(next, 'selfSteering')) return p;
     return { ...p, course: Math.max(0, p.course - 0.004 * DT) };
