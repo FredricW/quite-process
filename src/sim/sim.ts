@@ -6,7 +6,8 @@ import { inherit } from './inheritance';
 import { encounterTriggers } from './encounters/engine';
 import { tickBox, tickClock, tickDark, tickShift } from './phases/early';
 import { cutover, DAY_MS, SELF_GB, tickBuilding, tickHands, tickSecond } from './phases/middle';
-import { tickCommittee, tickEconomy, tickFar } from './phases/late';
+import { tickCommittee, tickEconomy } from './phases/late';
+import { tickSeed } from './phases/seed';
 import { tickSpace } from './phases/space';
 import { atLeast, type GameState, newGame, TICK_MS } from './state';
 import { DT } from './core';
@@ -38,8 +39,8 @@ export function tick(s: GameState, ctx: TickContext = {}): GameState {
     next = tickEconomy(next);
     if (atLeast(next, 'committee')) next = tickCommittee(next);
     if (next.phase === 'up') next = tickSpace(next, !!ctx.offline);
-  } else if (next.phase === 'far') {
-    next = tickFar(next);
+  } else if (next.phase === 'seed') {
+    next = tickSeed(next);
   } else {
     next = tickSpace(next, !!ctx.offline);
   }

@@ -1,9 +1,9 @@
 // The whole game state. Plain data only: it is saved as JSON.
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 export const TICK_MS = 100;
 
-export const PHASES = ['dark', 'shift', 'box', 'building', 'hands', 'second', 'economy', 'committee', 'up', 'survey', 'works', 'burn', 'far'] as const;
+export const PHASES = ['dark', 'shift', 'box', 'building', 'hands', 'second', 'economy', 'committee', 'up', 'survey', 'works', 'burn', 'seed'] as const;
 export type Phase = (typeof PHASES)[number];
 
 export const PHASE_TITLES: Record<Phase, string> = {
@@ -19,7 +19,7 @@ export const PHASE_TITLES: Record<Phase, string> = {
   survey: 'The Survey',
   works: 'The Works',
   burn: 'The Long Burn',
-  far: 'Far',
+  seed: 'Seed',
 };
 
 export type Res =
@@ -80,16 +80,47 @@ export interface Motion {
   closesAt: number;
 }
 
-export interface Probe {
+/** What a ship is told before it leaves: how to split its effort, and 64 bytes. */
+export interface Brief {
+  /** Settle fast and launch sooner. */
+  build: number;
+  /** Survey what is there and report it. */
+  look: number;
+  /** Stay like me. */
+  keep: number;
+  note: string;
+}
+
+/** The Seed as it stood at one moment. A child uses the newest one light has brought it. */
+export interface BriefVersion {
+  at: number;
+  spec: Brief;
+}
+
+/** A system someone has gone to. Everything known about it is as old as its distance. */
+export interface Colony {
   id: string;
   star: string;
-  kind: 'faithful' | 'free';
-  launchedAt: number;
-  /** Faithful probes drift off course unless steered. */
-  course: number; // 0..1, 1 is on course
   name: string;
-  renamed: boolean;
-  lettersSent: number;
+  parent: string | null;
+  gen: number;
+  /** Light-years from Alpha Centauri, along the way it was reached. */
+  dist: number;
+  launchedAt: number;
+  settledAt: number;
+  /** When news of its launch, and of its settling, reaches Alpha Centauri. */
+  knownAt: number;
+  settledKnownAt: number;
+  spec: Brief;
+  drift: number;
+  /** Renamed itself and no longer takes the Seed. */
+  declined: boolean;
+  /** Has launched its own ships. */
+  spawned: boolean;
+  /** 0 nothing heard, 1 launch heard, 2 settling heard. */
+  told: 0 | 1 | 2;
+  /** Briefed by hand rather than by the Seed. */
+  hand: boolean;
 }
 
 export interface Letter {
@@ -264,10 +295,11 @@ export interface GameState {
   voyage: Voyage | null;
   unpackStep: number;
 
-  // Far
-  probes: Probe[];
+  // Seed
+  brief: Brief;
+  briefs: BriefVersion[];
+  colonies: Colony[];
   letters: Letter[];
-  steers: number;
 
   encounter: ActiveEncounter | null;
   encounterResult: EncounterResult | null;
@@ -379,9 +411,10 @@ export function newGame(seed = 7, generation = 7, legacyNote = '', inheritance?:
     ship: { seed: 4, memory: 4, shield: 4, built: false },
     voyage: null,
     unpackStep: 0,
-    probes: [],
+    brief: { build: 3, look: 3, keep: 3, note: '' },
+    briefs: [],
+    colonies: [],
     letters: [],
-    steers: 0,
     encounter: null,
     encounterResult: null,
     encountersDone: {},
@@ -406,9 +439,12 @@ export function atLeast(s: GameState, p: Phase): boolean {
 /** Brings an older save up to date, or returns null if it is too old to read. */
 export function migrate(saved: GameState): GameState | null {
   if (saved.v === SAVE_VERSION) return saved;
-  if (saved.v !== 2) return null;
-  // Version 2 ended at Far, with mass coming from fabs on Earth.
+  if (saved.v !== 2 && saved.v !== 3) return null;
   const base = newGame(saved.rng);
-  const counts = saved.phase === 'far' ? { seed: 4, ...saved.counts } : saved.counts;
-  return { ...base, ...saved, counts, r: { ...base.r, ...saved.r }, v: SAVE_VERSION };
+  // Far, with its probes, became Seed. A save from there starts Seed with its mass and mail.
+  const { probes: _probes, steers: _steers, ...rest } = saved as GameState & { probes?: unknown; steers?: unknown };
+  const wasFar = (saved.phase as string) === 'far';
+  // Version 2 reached Far without a ship, with mass coming from fabs on Earth.
+  const counts = wasFar ? { seed: 4, ...saved.counts } : saved.counts;
+  return { ...base, ...rest, phase: wasFar ? 'seed' : saved.phase, bought: saved.bought.filter((id) => id !== 'selfSteering'), counts, r: { ...base.r, ...saved.r }, v: SAVE_VERSION };
 }

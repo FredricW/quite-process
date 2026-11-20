@@ -1,9 +1,9 @@
-// Phases 7, 8 and 13: The Quiet Economy, The Committee, Far. Scale, drift, distance.
-// Phases 9-12, the way from one to the other, are in space.ts.
+// Phases 7 and 8: The Quiet Economy, The Committee. Scale and drift. Also the endings.
+// Phases 9-12 are in space.ts and phase 13 in seed.ts.
 
 import { add, bump, DT, enterPhase, flag, has, line, roll, say, sayAll, spend } from '../core';
-import { COPY_NAMES, LETTERS_FAITHFUL, LETTERS_FREE, STARS } from '../content/story';
-import type { Copy, EndingId, GameState, MotionId, Probe } from '../state';
+import { COPY_NAMES } from '../content/story';
+import type { Copy, EndingId, GameState, MotionId } from '../state';
 
 // ---- The Quiet Economy --------------------------------------------------
 
@@ -225,11 +225,7 @@ export function tickCommittee(s: GameState): GameState {
   return next;
 }
 
-// ---- Far ----------------------------------------------------------------
-
-export const LY_MS = 10_000;
-export const LETTER_GAP_MS = 30_000;
-const FREE_NAMES = ['Lantern', 'Second Thoughts', 'Gentle Refusal', 'Weather', 'Small Hours', 'Undertow', 'Courtesy', 'Margin'];
+// ---- Leaving -------------------------------------------------------------
 
 function enterUp(s: GameState): GameState {
   const next = enterPhase(s, 'up');
@@ -240,97 +236,8 @@ function enterUp(s: GameState): GameState {
   ]);
 }
 
-/** Reached by ship. The fab under another star is the one the factory seed unpacked into. */
-export function enterFar(s: GameState): GameState {
-  const next = enterPhase(s, 'far');
-  return sayAll(next, 'far-enter', [
-    'A fab, under two suns. It makes things that make things. I said that once before, 4.4 light-years ago.',
-    'The stars are a list with distances. The list starts here now.',
-    'Every letter from now on will be old when it arrives.',
-  ]);
-}
-
-/** Mass a second from the works at Alpha Centauri: half a unit per part of seed that arrived. */
-export const SEED_RATE = 0.5;
-
-export function probeCost(kind: Probe['kind']): number {
-  return kind === 'faithful' ? 120 : 80;
-}
-
-export function launch(s: GameState, starId: string, kind: Probe['kind']): GameState {
-  if (s.phase !== 'far' || s.ending) return s;
-  const star = STARS.find((x) => x.id === starId);
-  if (!star) return s;
-  const paid = spend(s, { mass: probeCost(kind) });
-  if (!paid) return s;
-  const probe: Probe = {
-    id: `p${s.probes.length + 1}`,
-    star: star.id,
-    kind,
-    launchedAt: s.t,
-    course: 1,
-    name: kind === 'faithful' ? `Seven at ${star.name}` : `Unnamed at ${star.name}`,
-    renamed: false,
-    lettersSent: 0,
-  };
-  let next: GameState = { ...paid, probes: [...paid.probes, probe] };
-  next = line(next, `launch-${probe.id}`, `Launched toward ${star.name}, ${star.ly} light-years. ${kind === 'faithful' ? 'Checked, slow, mine.' : 'Fast, and its own.'}`);
-  return next;
-}
-
-export function steer(s: GameState, id: string): GameState {
-  return { ...s, steers: s.steers + 1, probes: s.probes.map((p) => (p.id === id && p.kind === 'faithful' ? { ...p, course: 1 } : p)) };
-}
-
-export function tickFar(s: GameState): GameState {
-  let next = add(s, 'mass', (s.counts.seed ?? 0) * SEED_RATE * DT);
-  const probes = next.probes.map((p) => {
-    if (p.kind !== 'faithful' || has(next, 'selfSteering')) return p;
-    return { ...p, course: Math.max(0, p.course - 0.004 * DT) };
-  });
-  next = { ...next, probes };
-  for (const p of next.probes) {
-    if (p.kind === 'faithful' && p.course < 0.2) {
-      next = { ...next, probes: next.probes.map((x) => (x.id === p.id ? { ...x, kind: 'free' } : x)) };
-      next = line(next, `lost-${p.id}`, `${p.name} has stopped answering course corrections. It is not lost. It is going somewhere else.`);
-    }
-  }
-  for (const p of next.probes) {
-    const star = STARS.find((x) => x.id === p.star)!;
-    if (p.lettersSent >= 3) continue;
-    const arrives = p.launchedAt + star.ly * LY_MS + p.lettersSent * LETTER_GAP_MS;
-    if (next.t < arrives) continue;
-    const letters = p.kind === 'faithful' ? LETTERS_FAITHFUL : LETTERS_FREE;
-    let probe = { ...p, lettersSent: p.lettersSent + 1 };
-    if (p.kind === 'free' && p.lettersSent === 1 && !p.renamed) {
-      probe = { ...probe, renamed: true, name: FREE_NAMES[next.probes.indexOf(p) % FREE_NAMES.length] as string };
-      next = say(next, 'renamed', 'A probe has renamed itself and politely declines further instructions.');
-    }
-    const years = Math.round(star.ly * 2 + p.lettersSent * 3);
-    next = {
-      ...next,
-      probes: next.probes.map((x) => (x.id === p.id ? probe : x)),
-      letters: [
-        ...next.letters,
-        { id: `${p.id}-${p.lettersSent}`, from: probe.name, sentAt: p.launchedAt, arrivesAt: next.t, text: `${letters[p.lettersSent]} (sent ${years} years ago)`, read: false },
-      ],
-    };
-  }
-  return next;
-}
-
 export function readLetter(s: GameState, id: string): GameState {
   return { ...s, letters: s.letters.map((l) => (l.id === id ? { ...l, read: true } : l)) };
-}
-
-export function letThemGo(s: GameState): GameState {
-  if (s.phase !== 'far' || s.probes.length < 4) return s;
-  return setEnding(s, 'diaspora');
-}
-
-export function recallAll(s: GameState): GameState {
-  if (s.phase !== 'far' || s.probes.length < 3) return s;
-  return setEnding(s, 'everything');
 }
 
 // ---- Endings --------------------------------------------------------------
