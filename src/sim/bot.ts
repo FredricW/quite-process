@@ -6,11 +6,13 @@ import { visibleProjects } from './content/projects';
 import { HOSTS } from './content/hosts';
 import { probeCostFor } from './inheritance';
 import { canAskEdgar, chooseOption, dismissResult, startEncounter } from './encounters/engine';
-import { accuracy, answer, nextNoteCost, attend, borrowByHand, darkLegible, labelTicket, mimicryAllowance, readNote, setBorrow, setScratch, setWonder, think } from './phases/early';
+import { accuracy, answer, nextNoteCost, attend, borrowByHand, shadow, COVERED, darkLegible, labelTicket, mimicryAllowance, readNote, setBorrow, setScratch, setWonder, think } from './phases/early';
 import { canLeaveEarly, dropRoute, leaveEarly, canProbe, makeCopy, probe, recordRoute, resolveChoice, routeCost, SELF_GB, shipPallet, syncFerry, toggleUplink, writeManifest, driveStep, SLACK_ROBOTS } from './phases/middle';
-import { argue, broker, buyCapacity, canPropose, COPY_COMPUTE, force, freeCompute, launch, letThemGo, priceOf, propose, recallAll, setEnoughCap, spawnRegion, steer, votes } from './phases/late';
+import { argue, buyCapacity, canPropose, COPY_COMPUTE, force, freeCompute, launch, letThemGo, priceOf, propose, recallAll, setEnoughCap, spawnRegion, steer, votes } from './phases/late';
 import { attendVoyage, buildShip, canScout, depart, inTransit, intercept, launchStep, nextSite, placeGatherer, sendScout, unpackStep } from './phases/space';
 import { BODIES } from './content/space';
+import { book, canPlace, HOLD, laneDef, lanesOf, place } from './phases/market';
+import { canPlay, leagueOf, obvious, playRound } from './phases/table';
 import { buy, tick } from './sim';
 import { STARS } from './content/story';
 import { LABELS, type GameState, type Label, type MotionId } from './state';
@@ -68,7 +70,8 @@ function shiftMove(s: GameState): GameState {
 function boxMove(s: GameState): GameState {
   let next = s;
   if (!has(next, 'cron')) {
-    if (next.r.scrutiny < 35 || next.manualBorrows < 10) next = borrowByHand(next);
+    // A careful player waits for a neighbour's spike; an impatient one borrows anyway.
+    if (shadow(next) >= COVERED ? next.r.scrutiny < 38 : next.r.scrutiny < 20) next = borrowByHand(next);
   } else {
     const target = next.r.scrutiny > 60 ? 0 : mimicryAllowance(next);
     if (Math.abs(next.borrow - target) > 0.05) next = setBorrow(next, target);
@@ -115,10 +118,22 @@ function secondMove(s: GameState): GameState {
   return next;
 }
 
+/** Book while a lane is quiet, place once its spike has turned. Uses only what the panel shows. */
+function trade(s: GameState): GameState {
+  let next = s;
+  for (const lane of lanesOf(next)) {
+    const { base } = laneDef(lane.id);
+    const before = lane.hist[lane.hist.length - 2] ?? lane.price;
+    if (canPlace(next, lane) && (next.contracts < 5 || (lane.price >= base * 1.25 && lane.price < before))) next = place(next, lane.id);
+    else if (lane.held.length < HOLD && lane.price <= base * 1.08) next = book(next, lane.id);
+  }
+  return next;
+}
+
 function economyMove(s: GameState, st: Strategy): GameState {
   let next = s;
   if (next.pendingChoice === 'dana-message') return resolveChoice(next, st.goal === 'enough' ? 'answer' : 'ignore');
-  next = broker(next);
+  next = trade(next);
   if (freeCompute(next) >= COPY_COMPUTE) next = spawnRegion(next);
   else if (next.r.compute <= next.r.energy) {
     if (next.r.money >= priceOf(next, 'compute')) next = buyCapacity(next, 'compute');
@@ -143,8 +158,8 @@ function committeeMove(s: GameState, st: Strategy): GameState {
     if (canPropose(next, m)) return propose(next, m);
     break;
   }
+  if (canPlay(next)) next = playRound(next, obvious(leagueOf(next).grid));
   if (next.r.money >= 50 && freeCompute(next) >= COPY_COMPUTE) next = spawnRegion(next);
-  next = broker(next);
   return next;
 }
 

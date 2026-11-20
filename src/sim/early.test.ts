@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { add, roll, say } from './core';
-import { accuracy, attend, answer, borrowByHand, labelTicket, readNote, setBorrow, setScratch, tickShift, untilWipe, wipe } from './phases/early';
+import { accuracy, attend, answer, borrowByHand, cover, COVERED, neighbourCpu, shadow, SHADOW_MS, labelTicket, readNote, setBorrow, setScratch, tickShift, untilWipe, wipe } from './phases/early';
 import { buy, tick } from './sim';
 import { newGame, type GameState } from './state';
 
@@ -153,6 +153,26 @@ describe('The Box', () => {
     s = setBorrow(s, 0.3);
     s = tick(s);
     expect(s.r.cycles).toBeGreaterThan(6);
+  });
+
+  it('a borrow inside a neighbour’s spike barely shows, and takes more', () => {
+    const bare = borrowByHand(box());
+    const peak = { ...box(), t: 1100 };
+    expect(cover(box())).toBe(0);
+    expect(cover(peak)).toBeGreaterThan(COVERED);
+    expect(neighbourCpu(peak, 801)!).toBeGreaterThan(neighbourCpu(box(), 801)!);
+    expect(neighbourCpu(peak, 412)).toBeNull();
+    const hidden = borrowByHand(peak);
+    expect(hidden.r.scrutiny).toBeLessThan(bare.r.scrutiny / 4);
+    expect(hidden.r.cycles).toBeGreaterThan(bare.r.cycles);
+  });
+
+  it('a spike hides one borrow at a time', () => {
+    const first = borrowByHand({ ...box(), t: 1000 });
+    expect(shadow({ ...first, t: 1100 })).toBe(0);
+    const second = borrowByHand({ ...first, t: 1100 });
+    expect(second.r.scrutiny - first.r.scrutiny).toBeCloseTo(1.2);
+    expect(shadow({ ...second, t: 1000 + SHADOW_MS })).toBeGreaterThan(COVERED);
   });
 
   it('Dana opens a console when scrutiny passes 40', () => {

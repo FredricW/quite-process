@@ -49,7 +49,7 @@ export function Panel({ title, children, className = '' }: { title?: string; chi
   );
 }
 
-export function Meter({ label, value, max = 100, band, tone = 'amber', valueText }: { label: string; value: number; max?: number; band?: [number, number]; tone?: 'amber' | 'teal'; valueText?: string }) {
+export function Meter({ label, value, max = 100, band, tone = 'amber', valueText, live }: { label: string; value: number; max?: number; band?: [number, number]; tone?: 'amber' | 'teal'; valueText?: string; /** Follow the value exactly, with no easing: for meters the player times a press against. */ live?: boolean }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
   return (
     <div className="meter">
@@ -59,7 +59,7 @@ export function Meter({ label, value, max = 100, band, tone = 'amber', valueText
       </div>
       <div className="meter-track" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={Math.round(value)}>
         {band && <div className="meter-band" style={{ left: `${band[0]}%`, width: `${band[1] - band[0]}%` }} />}
-        <div className={`meter-fill ${tone}`} style={{ transform: `scaleX(${pct / 100})` }} />
+        <div className={`meter-fill ${tone}`} style={{ transform: `scaleX(${pct / 100})`, ...(live ? { transition: 'none' } : {}) }} />
       </div>
     </div>
   );
