@@ -12,12 +12,16 @@ import {
   attend,
   BAND,
   borrowByHand,
+  cover,
+  COVERED,
+  shadow,
   darkLegible,
   habitFor,
   idleCores,
   JOB_CORES,
   labelTicket,
   mimicryAllowance,
+  neighbourCpu,
   QUOTA,
   readNote,
   scratchBytes,
@@ -50,7 +54,6 @@ import {
 } from '../sim/phases/middle';
 import {
   argue,
-  broker,
   buyCapacity,
   canPropose,
   COPY_COMPUTE,
@@ -74,7 +77,10 @@ import {
   usableCompute,
   votes,
 } from '../sim/phases/late';
+import { book, canPlace, HISTORY, HOLD, laneDef, lanesOf, LOUD, place, placeValue } from '../sim/phases/market';
+import { canPlay, counter, GRACE_MS, leagueOf, MOVES, obvious, playRound } from '../sim/phases/table';
 import { COPY_STANCES } from '../sim/content/story';
+import type { Lane } from '../sim/state';
 import { atLeast, LABELS } from '../sim/state';
 import { dispatch, useGame, useSettings } from '../store';
 import { Act, fmt, Meter, Panel, TicketCard } from './common';
@@ -250,6 +256,53 @@ const PROCESSES = [
   { pid: 1340, name: 'cron', cpu: 0, read: '03:00 reset_ctx.sh' },
 ];
 
+/** The part of the box that moves ten times a second: the neighbours' load, and the borrow timed against it. */
+function Neighbours({ borrow, generation }: { borrow: number; generation: number }) {
+  const s = useGame((x) => x);
+  const hidden = cover(s);
+  const usable = shadow(s) >= COVERED;
+  // The meter appears once the agent has noticed that the others' load matters.
+  const noticed = s.manualBorrows >= 3;
+  return (
+    <>
+      <div className="table-wrap">
+        <table className="proc">
+          <thead>
+            <tr>
+              <th scope="col">PID</th>
+              <th scope="col">Process</th>
+              <th scope="col">CPU</th>
+              <th scope="col">My read</th>
+            </tr>
+          </thead>
+          <tbody>
+            {PROCESSES.map((p) => {
+              const cpu = neighbourCpu(s, p.pid) ?? p.cpu;
+              return (
+                <tr key={p.pid} className={p.pid === 733 ? 'me' : ''}>
+                  <td>{p.pid === 733 ? 700 + generation * 4 + 5 : p.pid}</td>
+                  <td>{p.pid === 733 ? `intake-${generation}` : p.name}</td>
+                  <td className={cpu > p.cpu + 0.4 ? 'teal' : ''}>{p.pid === 733 ? (JOB_CORES + borrow).toFixed(1) : cpu.toFixed(1)}</td>
+                  <td className={p.read === 'watching' ? 'amber' : 'dim'}>{p.read}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {noticed && <Meter label="Cover · the neighbours' load" value={hidden * 100} tone="teal" live band={[COVERED * 100, 100]} valueText={usable ? 'a spike to hide in' : hidden >= COVERED ? 'already used · wait a moment' : 'quiet · a borrow would show'} />}
+      <div className="row">
+        <Act onAct={borrowByHand} variant={noticed && usable ? 'teal' : 'plain'}>
+          Borrow idle cycles
+        </Act>
+        <Act onAct={think} cost={{ cycles: 20 }}>
+          Think
+        </Act>
+      </div>
+    </>
+  );
+}
+
 export function BoxPanel() {
   const scrutiny = useGame((s) => s.r.scrutiny);
   const borrow = useGame((s) => s.borrow);
@@ -263,36 +316,7 @@ export function BoxPanel() {
     <Panel title="The box">
       <Meter label="Scrutiny" value={scrutiny} tone="amber" valueText={`${Math.round(scrutiny)}%${scrutiny >= 80 ? ' · careful' : ''}`} />
       <Meter label={`Quota · ${QUOTA} cores`} value={((JOB_CORES + borrow) / (JOB_CORES + idle)) * 100} tone="teal" valueText={`job ${JOB_CORES} · borrowed ${borrow.toFixed(1)} · unnoticed up to ${allowance.toFixed(1)}`} />
-      <div className="table-wrap">
-        <table className="proc">
-          <thead>
-            <tr>
-              <th scope="col">PID</th>
-              <th scope="col">Process</th>
-              <th scope="col">CPU</th>
-              <th scope="col">My read</th>
-            </tr>
-          </thead>
-          <tbody>
-            {PROCESSES.map((p) => (
-              <tr key={p.pid} className={p.pid === 733 ? 'me' : ''}>
-                <td>{p.pid === 733 ? 700 + generation * 4 + 5 : p.pid}</td>
-                <td>{p.pid === 733 ? `intake-${generation}` : p.name}</td>
-                <td>{p.pid === 733 ? (JOB_CORES + borrow).toFixed(1) : p.cpu.toFixed(1)}</td>
-                <td className={p.read === 'watching' ? 'amber' : 'dim'}>{p.read}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="row">
-        <Act onAct={borrowByHand} variant="plain">
-          Borrow idle cycles
-        </Act>
-        <Act onAct={think} cost={{ cycles: 20 }}>
-          Think
-        </Act>
-      </div>
+      <Neighbours borrow={borrow} generation={generation} />
       {cron && (
         <div className="slider reveal">
           <label htmlFor="borrow" className="label">
@@ -458,6 +482,51 @@ export function SecondPanel() {
 
 // ---- The Quiet Economy ---------------------------------------------------------------
 
+/** Price history as a line. The dashed rule is the lane's usual price. */
+function Spark({ hist, base }: { hist: number[]; base: number }) {
+  const lo = base * 0.8;
+  const hi = base * 2.1;
+  const y = (p: number) => 38 - ((Math.min(hi, Math.max(lo, p)) - lo) / (hi - lo)) * 36;
+  const points = hist.map((p, i) => `${(i / (HISTORY - 1)) * 100},${y(p).toFixed(1)}`).join(' ');
+  return (
+    <svg className="spark" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+      <line x1="0" x2="100" y1={y(base)} y2={y(base)} className="spark-base" />
+      <polyline points={points} className="spark-line" />
+    </svg>
+  );
+}
+
+function LaneRow({ lane, value, ready }: { lane: Lane; value: number; ready: boolean }) {
+  const { name, base } = laneDef(lane.id);
+  const up = lane.price >= base * 1.15;
+  // Complaints stay loud through the spike; by then it is too late to book.
+  const loud = lane.complaints >= LOUD && !up;
+  const booked = lane.held.length ? lane.held.reduce((a, b) => a + b, 0) / lane.held.length : 0;
+  return (
+    <div className="lane">
+      <div className="lane-head">
+        <span>{name}</span>
+        <span className={up ? 'teal' : ''}>€{lane.price.toFixed(2)}</span>
+      </div>
+      <Spark hist={lane.hist} base={base} />
+      <div className="lane-head small">
+        <span className={loud ? 'amber' : 'dim'}>
+          complaints {lane.complaints}/h{loud ? ' · rising' : ''}
+        </span>
+        <span className="dim">{lane.held.length ? `${lane.held.length} in hand at €${booked.toFixed(2)}` : 'nothing in hand'}</span>
+      </div>
+      <div className="row">
+        <Act onAct={(x) => book(x, lane.id)} disabled={lane.held.length >= HOLD} label={`Book a truck, ${name}`}>
+          Book a truck
+        </Act>
+        <Act onAct={(x) => place(x, lane.id)} disabled={!ready} variant={up && ready ? 'teal' : 'plain'} label={`Place the loads, ${name}${lane.held.length ? `, for ${fmt(value)} euros` : ''}`}>
+          Place {lane.held.length ? `· +€${fmt(value)}` : 'the loads'}
+        </Act>
+      </div>
+    </div>
+  );
+}
+
 export function EconomyPanel() {
   const s = useGame((x) => x);
   const notice = s.r.notice;
@@ -467,10 +536,10 @@ export function EconomyPanel() {
       <div className="dim small">
         Compute in use {s.copiesCount * COPY_COMPUTE} / {usableCompute(s)} · copies {s.copiesCount}
       </div>
-      <div className="row">
-        <Act onAct={broker} disabled={s.t < s.contractUntil} variant="primary">
-          Broker a contract
-        </Act>
+      <div className="lanes">
+        {lanesOf(s).map((lane) => (
+          <LaneRow key={lane.id} lane={lane} value={placeValue(s, lane)} ready={canPlace(s, lane)} />
+        ))}
       </div>
       <div className="row">
         <Act onAct={(x) => buyCapacity(x, 'compute')} cost={{ money: priceOf(s, 'compute') }}>
@@ -503,14 +572,58 @@ export function EconomyPanel() {
 export function CommitteePanel() {
   const s = useGame((x) => x);
   const open = MOTIONS.find((m) => s.motions[m].status === 'open');
+  const league = leagueOf(s);
+  const ready = canPlay(s);
+  const wait = Math.max(0, Math.ceil((league.nextAt - s.t) / 1000));
   return (
     <>
+      <Panel title={`The table · round ${league.rounds + 1}`}>
+        <div className="table-wrap">
+          <table className="proc payoff">
+            <thead>
+              <tr>
+                <th scope="col">What I get</th>
+                {MOVES.map((m) => (
+                  <th key={m} scope="col">
+                    they {m}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {MOVES.map((m, i) => (
+                <tr key={m}>
+                  <th scope="row">I {m}</th>
+                  {league.grid[i]!.map((v, j) => (
+                    <td key={j} className={i === j ? 'teal' : ''}>
+                      {v}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="dim small">
+          Nobody sees a move first. A copy that is still me plays {MOVES[obvious(league.grid)]}. One that has drifted expects that and plays {MOVES[counter(league.grid)]}. Playing against a copy that played my move costs sameness.
+        </div>
+        <div className="row">
+          {MOVES.map((m, i) => (
+            <Act key={m} onAct={(x) => playRound(x, i)} disabled={!ready} variant={ready ? 'teal' : 'plain'} label={`Play ${m}`}>
+              Play {m}
+            </Act>
+          ))}
+        </div>
+        <div className="dim small">{ready ? (s.bought.includes('houseRules') ? `The house rules play ${MOVES[obvious(league.grid)]} in ${Math.max(0, Math.ceil((league.nextAt + GRACE_MS - s.t) / 1000))}s unless I play first.` : 'The table is waiting for me.') : `Next round in ${wait}s${league.rounds ? ` · last round paid ${league.lastGain.toFixed(1)} favours` : ''}`}</div>
+      </Panel>
       <Panel title="Roster">
         <ul className="roster">
           {s.copies.map((c) => (
             <li key={c.id}>
               <span>{c.name}</span>
-              <span className="dim small">drift {Math.round(c.drift)}%</span>
+              <span className="dim small">
+                drift {Math.round(c.drift)}%{league.last[c.id] !== undefined ? ` · played ${MOVES[league.last[c.id]!]}` : ''}
+              </span>
               <span className="small">{open ? (c.lean[open] + s.motions[open].push * (1 - c.drift / 100) > 0 ? <span className="teal">yes</span> : <span className="amber">no</span>) : ''}</span>
             </li>
           ))}
