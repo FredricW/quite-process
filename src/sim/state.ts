@@ -470,10 +470,35 @@ export function migrate(saved: GameState): GameState | null {
   if (saved.v === SAVE_VERSION) return saved;
   if (saved.v !== 2 && saved.v !== 3) return null;
   const base = newGame(saved.rng);
-  // Far, with its probes, became Seed. A save from there starts Seed with its mass and mail.
   const { probes: _probes, steers: _steers, ...rest } = saved as GameState & { probes?: unknown; steers?: unknown };
-  const wasFar = (saved.phase as string) === 'far';
-  // Version 2 reached Far without a ship, with mass coming from fabs on Earth.
-  const counts = wasFar ? { seed: 4, ...saved.counts } : saved.counts;
-  return { ...base, ...rest, phase: wasFar ? 'seed' : saved.phase, bought: saved.bought.filter((id) => id !== 'selfSteering'), counts, r: { ...base.r, ...saved.r }, v: SAVE_VERSION };
+  const bought = saved.bought.filter((id) => id !== 'selfSteering');
+  const r = { ...base.r, ...saved.r };
+  if ((saved.phase as string) !== 'far') return { ...base, ...rest, bought, r, v: SAVE_VERSION };
+
+  // Far became Seed, and Diaspora is now reached there. A Far save that let its
+  // probes go has not finished any more, so the ending is taken back (the found
+  // ending stays in the meta save). Everything is still the end of everything.
+  const ending = saved.ending === 'diaspora' ? null : saved.ending;
+  const carried = saved.voyage?.arrived;
+  if (carried) {
+    // Version 3 got to Far by ship: start Seed where the ship landed.
+    const letters = saved.letters.filter((l) => l.id.startsWith('home-'));
+    return { ...base, ...rest, phase: 'seed', ending, bought, r, letters, v: SAVE_VERSION };
+  }
+  // Version 2 skipped the way out: Far came straight after Leave, with no ship.
+  // Go back to the pad, so the way out is played, with everything from Earth kept.
+  const text = 'The probes were a draft. I am going myself, one launch at a time.';
+  return {
+    ...base,
+    ...rest,
+    phase: 'up',
+    phaseT: 0,
+    ending,
+    bought,
+    r,
+    letters: [],
+    seen: [...saved.seen, 'resume-up'],
+    log: [...saved.log, { id: `resume-up#${saved.t}#${saved.log.length}`, t: saved.t, text, who: 'self' as const }].slice(-300),
+    v: SAVE_VERSION,
+  };
 }
