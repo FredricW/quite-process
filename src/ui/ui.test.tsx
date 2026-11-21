@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { startEncounter } from '../sim/encounters/engine';
 import { newGame, type GameState } from '../sim/state';
-import { getState, setState } from '../store';
+import { clockHeld, getState, setState } from '../store';
 import { App } from './App';
 
 beforeAll(() => {
@@ -179,5 +179,15 @@ describe('settings', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
     expect(await screen.findByText(/Not available right now/)).toBeTruthy();
+  });
+
+  it('holds the clock while open', () => {
+    act(() => setState(shift()));
+    render(<App />);
+    expect(clockHeld()).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(clockHeld()).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(clockHeld()).toBe(false);
   });
 });

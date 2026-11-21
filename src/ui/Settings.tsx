@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { liveAvailable } from '../live';
-import { exportSave, importSave, resetGame, updateSettings, useMeta, useSettings } from '../store';
+import { exportSave, holdClock, importSave, resetGame, updateSettings, useMeta, useSettings } from '../store';
 
 export function SettingsButton({ onOpen }: { onOpen: () => void }) {
   return (
@@ -19,6 +19,9 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
   const [available, setAvailable] = useState<boolean | null>(null);
   const [code, setCode] = useState('');
   const [message, setMessage] = useState('');
+
+  // The game stands still while settings are open.
+  useEffect(() => holdClock(), []);
 
   useEffect(() => {
     let alive = true;
@@ -39,7 +42,7 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
     <div className="overlay" role="dialog" aria-modal="true" aria-label="Settings">
       <div className="console settings">
         <div className="console-head">
-          <span>Settings</span>
+          <span>Settings · paused</span>
           <button type="button" className="btn btn-plain" onClick={onClose}>
             Close
           </button>

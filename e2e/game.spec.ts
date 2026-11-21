@@ -16,7 +16,7 @@ async function load(page: Page, fixture: string) {
   await page.addInitScript((s) => {
     if (sessionStorage.getItem('qp.seeded')) return;
     sessionStorage.setItem('qp.seeded', '1');
-    localStorage.setItem('qp.save', JSON.stringify({ ...JSON.parse(s), savedAt: Date.now() }));
+    localStorage.setItem('qp.save', s);
   }, save);
   await page.goto('/');
 }

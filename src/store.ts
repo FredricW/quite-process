@@ -4,7 +4,7 @@
 import { useRef, useSyncExternalStore } from 'react';
 import { migrate, newGame, TICK_MS, type EndingId, type GameState } from './sim/state';
 import { paceOf } from './sim/phases/space';
-import { advance, tick } from './sim/sim';
+import { tick } from './sim/sim';
 
 const SAVE_KEY = 'qp.save';
 const META_KEY = 'qp.meta';
@@ -41,16 +41,13 @@ function write(key: string, value: unknown) {
   }
 }
 
-export function loadSave(raw: string | null, now = Date.now()): GameState {
+/** Load a save as it was left. Time away does not count: the game only runs while it is open. */
+export function loadSave(raw: string | null): GameState {
   if (!raw) return newGame(seed());
   try {
-    const saved = JSON.parse(raw) as GameState & { savedAt?: number };
-    const away = saved.savedAt ? Math.max(0, now - saved.savedAt) : 0;
-    const { savedAt: _, ...rest } = saved;
-    const state = migrate(rest as GameState);
-    if (!state) return newGame(seed());
-    // A slowed clock keeps running while the player is away.
-    return advance(state, away * paceOf(state));
+    // Older saves carry a savedAt stamp from when time away was played as offline progress.
+    const { savedAt: _, ...rest } = JSON.parse(raw) as GameState & { savedAt?: number };
+    return migrate(rest as GameState) ?? newGame(seed());
   } catch {
     return newGame(seed());
   }
@@ -69,7 +66,7 @@ function emit() {
 }
 
 export function save() {
-  write(SAVE_KEY, { ...state, savedAt: Date.now() });
+  write(SAVE_KEY, state);
 }
 
 export function getState(): GameState {
@@ -162,9 +159,28 @@ export function importSave(code: string): boolean {
   }
 }
 
-// Wall-clock loop. Background tabs throttle timers, so we never trust the
-// interval: we measure real elapsed time and catch up. Long gaps count as
-// offline, where nothing risky happens.
+// Holds on the clock, such as an open settings sheet. The game runs only
+// while nothing holds it and the page is visible.
+let holds = 0;
+
+/** Stop the clock until the returned release is called. Holds stack. */
+export function holdClock(): () => void {
+  holds++;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    holds--;
+  };
+}
+
+export function clockHeld(): boolean {
+  return holds > 0;
+}
+
+// Wall-clock loop. Timers drift, so we measure real elapsed time rather than
+// trust the interval. Time the game was not running, because the page was
+// hidden, the machine slept or the clock was held, never counts.
 let started = false;
 
 export function startLoop() {
@@ -174,20 +190,21 @@ export function startLoop() {
   let last = performance.now();
   let acc = 0;
   let sinceSave = 0;
-  const ONLINE_LIMIT = 600; // ticks; beyond this, catch up as offline
+  const MAX_GAP = 1000; // ms; a longer gap between steps means the game was not running
 
   const step = () => {
     const now = performance.now();
-    acc += (now - last) * speed * paceOf(state);
+    const gap = now - last;
     last = now;
+    if (holds > 0 || document.hidden || gap > MAX_GAP) return;
+    acc += gap * speed * paceOf(state);
     if (acc < TICK_MS) return;
     const n = Math.floor(acc / TICK_MS);
     acc -= n * TICK_MS;
     dispatch((s) => {
       let next = s;
-      const online = Math.min(n, ONLINE_LIMIT);
-      for (let i = 0; i < online; i++) next = tick(next);
-      return n > ONLINE_LIMIT ? advance(next, (n - ONLINE_LIMIT) * TICK_MS) : next;
+      for (let i = 0; i < n; i++) next = tick(next);
+      return next;
     });
     sinceSave += n;
     if (sinceSave >= 50) {

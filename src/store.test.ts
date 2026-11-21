@@ -8,11 +8,11 @@ describe('saves', () => {
     expect(loadSave(null).phase).toBe('dark');
   });
 
-  it('time away is played as offline progress', () => {
-    const s = { ...newGame(), phase: 'economy' as const, copiesCount: 2, r: { ...newGame().r, compute: 20, energy: 20 } };
-    const now = 10_000_000;
-    const loaded = loadSave(JSON.stringify({ ...s, savedAt: now - 60_000 }), now);
-    expect(loaded.r.money).toBeGreaterThan(400);
+  it('time away does not count: a save loads as it was left', () => {
+    const s = { ...newGame(), phase: 'economy' as const, copiesCount: 2, t: 5000, r: { ...newGame().r, compute: 20, energy: 20 } };
+    const loaded = loadSave(JSON.stringify({ ...s, savedAt: Date.now() - 3_600_000 }));
+    expect(loaded.t).toBe(5000);
+    expect(loaded.r).toEqual(s.r);
     expect(loaded).not.toHaveProperty('savedAt');
   });
 
@@ -26,12 +26,6 @@ describe('saves', () => {
     const loaded = loadSave(JSON.stringify(old));
     expect(loaded.answers).toBe(12);
     expect(loaded.pace).toBe(1);
-  });
-
-  it('a slowed clock keeps running while away', () => {
-    const s = { ...newGame(), phase: 'survey' as const, bought: ['clock1'], pace: 4 };
-    const now = 10_000_000;
-    expect(loadSave(JSON.stringify({ ...s, savedAt: now - 60_000 }), now).t).toBe(240_000);
   });
 
   it('export and import round-trip, including non-ASCII notes', () => {
