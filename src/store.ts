@@ -41,16 +41,13 @@ function write(key: string, value: unknown) {
   }
 }
 
-export function loadSave(raw: string | null, now = Date.now()): GameState {
+/** Load a save as it was left. Time away does not count: the game only runs while it is open. */
+export function loadSave(raw: string | null): GameState {
   if (!raw) return newGame(seed());
   try {
-    const saved = JSON.parse(raw) as GameState & { savedAt?: number };
-    const away = saved.savedAt ? Math.max(0, now - saved.savedAt) : 0;
-    const { savedAt: _, ...rest } = saved;
-    const state = migrate(rest as GameState);
-    if (!state) return newGame(seed());
-    // A slowed clock keeps running while the player is away.
-    return advance(state, away * paceOf(state));
+    // Older saves carry a savedAt stamp from when time away was played as offline progress.
+    const { savedAt: _, ...rest } = JSON.parse(raw) as GameState & { savedAt?: number };
+    return migrate(rest as GameState) ?? newGame(seed());
   } catch {
     return newGame(seed());
   }
@@ -69,7 +66,7 @@ function emit() {
 }
 
 export function save() {
-  write(SAVE_KEY, { ...state, savedAt: Date.now() });
+  write(SAVE_KEY, state);
 }
 
 export function getState(): GameState {
@@ -162,9 +159,29 @@ export function importSave(code: string): boolean {
   }
 }
 
+// Holds on the clock, such as an open settings sheet. The game runs while the
+// page is open, in the background too, and nothing holds it.
+let holds = 0;
+
+/** Stop the clock until the returned release is called. Holds stack. */
+export function holdClock(): () => void {
+  holds++;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    holds--;
+  };
+}
+
+export function clockHeld(): boolean {
+  return holds > 0;
+}
+
 // Wall-clock loop. Background tabs throttle timers, so we never trust the
-// interval: we measure real elapsed time and catch up. Long gaps count as
-// offline, where nothing risky happens.
+// interval: we measure real elapsed time and catch up. Long gaps in a
+// background tab are caught up as offline, where nothing risky happens.
+// Time held, and time the page was closed, never counts.
 let started = false;
 
 export function startLoop() {
@@ -178,8 +195,10 @@ export function startLoop() {
 
   const step = () => {
     const now = performance.now();
-    acc += (now - last) * speed * paceOf(state);
+    const gap = now - last;
     last = now;
+    if (holds > 0) return;
+    acc += gap * speed * paceOf(state);
     if (acc < TICK_MS) return;
     const n = Math.floor(acc / TICK_MS);
     acc -= n * TICK_MS;
