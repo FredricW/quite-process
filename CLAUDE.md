@@ -14,7 +14,7 @@ Prototypes: https://claude.ai/artifact/GxJpsVAX1CTKnifA5Vy7Nq
 ## Architecture
 
 - `src/sim/` is pure TypeScript: no DOM, no timers, no unseeded randomness. State is plain JSON. Actions and `tick` return new state.
-- There is no offline progress: the game runs only while the page is open and visible, and a save loads as it was left. The loop in `src/store.ts` drops any gap longer than a second. `advance()` (the same `tick` run many times, capped at eight hours, nothing risky) remains for tests and the bot.
+- Time with the page closed never counts: a save loads as it was left. A page left open keeps running, in a background tab too; the loop in `src/store.ts` catches up throttled gaps, beyond a minute through `advance()` (the same `tick` run many times, capped at eight hours, nothing risky).
 - The clock also stops while something holds it with `holdClock()`; the settings sheet does.
 - `src/store.ts` holds the one store and the wall-clock loop. React reads it with `useGame(selector)`.
 - `src/ui/Counter.tsx` tweens numbers per animation frame without re-rendering.

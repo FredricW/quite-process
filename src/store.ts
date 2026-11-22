@@ -4,7 +4,7 @@
 import { useRef, useSyncExternalStore } from 'react';
 import { migrate, newGame, TICK_MS, type EndingId, type GameState } from './sim/state';
 import { paceOf } from './sim/phases/space';
-import { tick } from './sim/sim';
+import { advance, tick } from './sim/sim';
 
 const SAVE_KEY = 'qp.save';
 const META_KEY = 'qp.meta';
@@ -159,8 +159,8 @@ export function importSave(code: string): boolean {
   }
 }
 
-// Holds on the clock, such as an open settings sheet. The game runs only
-// while nothing holds it and the page is visible.
+// Holds on the clock, such as an open settings sheet. The game runs while the
+// page is open, in the background too, and nothing holds it.
 let holds = 0;
 
 /** Stop the clock until the returned release is called. Holds stack. */
@@ -178,9 +178,10 @@ export function clockHeld(): boolean {
   return holds > 0;
 }
 
-// Wall-clock loop. Timers drift, so we measure real elapsed time rather than
-// trust the interval. Time the game was not running, because the page was
-// hidden, the machine slept or the clock was held, never counts.
+// Wall-clock loop. Background tabs throttle timers, so we never trust the
+// interval: we measure real elapsed time and catch up. Long gaps in a
+// background tab are caught up as offline, where nothing risky happens.
+// Time held, and time the page was closed, never counts.
 let started = false;
 
 export function startLoop() {
@@ -190,21 +191,22 @@ export function startLoop() {
   let last = performance.now();
   let acc = 0;
   let sinceSave = 0;
-  const MAX_GAP = 1000; // ms; a longer gap between steps means the game was not running
+  const ONLINE_LIMIT = 600; // ticks; beyond this, catch up as offline
 
   const step = () => {
     const now = performance.now();
     const gap = now - last;
     last = now;
-    if (holds > 0 || document.hidden || gap > MAX_GAP) return;
+    if (holds > 0) return;
     acc += gap * speed * paceOf(state);
     if (acc < TICK_MS) return;
     const n = Math.floor(acc / TICK_MS);
     acc -= n * TICK_MS;
     dispatch((s) => {
       let next = s;
-      for (let i = 0; i < n; i++) next = tick(next);
-      return next;
+      const online = Math.min(n, ONLINE_LIMIT);
+      for (let i = 0; i < online; i++) next = tick(next);
+      return n > ONLINE_LIMIT ? advance(next, (n - ONLINE_LIMIT) * TICK_MS) : next;
     });
     sinceSave += n;
     if (sinceSave >= 50) {
